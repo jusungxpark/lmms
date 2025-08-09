@@ -14,6 +14,7 @@
 #include <QEvent>
 #include <QKeyEvent>
 #include <QRegularExpression>
+#include <QCheckBox>
 
 #include "Engine.h"
 #include "Song.h"
@@ -30,6 +31,10 @@
 #include "volume.h"
 #include "Clip.h"
 #include "embed.h"
+#include "ModelClient.h"
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 using namespace lmms;
 
@@ -54,8 +59,11 @@ AssistantPanel::AssistantPanel(QWidget* parent)
     m_input = new QLineEdit(row);
     m_input->setPlaceholderText(tr("e.g. Transpose Bass -2; set tempo 128; add effect Saturation on Lead"));
     m_runBtn = new QPushButton(tr("Run"), row);
+    m_aiToggle = new QCheckBox(tr("Use GPT-5"), row);
+    m_aiToggle->setChecked(true);
     rowLayout->addWidget(m_input);
     rowLayout->addWidget(m_runBtn);
+    rowLayout->addWidget(m_aiToggle);
     layout->addWidget(row);
 
     addContentWidget(root);
@@ -66,13 +74,48 @@ AssistantPanel::AssistantPanel(QWidget* parent)
     // UX: focus input, select all; install history key handling
     m_input->installEventFilter(this);
     m_input->setFocus(Qt::OtherFocusReason);
+
+    // Future: hook a model client; for now we just construct it without network
+    // and leave the API key unset (settable later via settings).
+    m_modelClient = new ModelClient(this);
+    // Optional: read API key from env to avoid storing secrets in code.
+    if (const QByteArray envKey = qgetenv("OPENAI_API_KEY"); !envKey.isEmpty()) {
+        m_modelClient->setApiKey(QString::fromUtf8(envKey));
+        m_modelClient->setModel(QStringLiteral("gpt-5"));
+        m_modelClient->setTemperature(0.4);
+    }
+
+    // Hook model plan output: when a JSON plan arrives, execute steps
+    connect(m_modelClient, &ModelClient::planReady, this, &AssistantPanel::handleModelPlan);
+    connect(m_modelClient, &ModelClient::errorOccurred, this, [this](const QString& msg){
+        m_logList->addItem(tr("Model error: %1").arg(msg));
+        m_logList->scrollToBottom();
+    });
+    connect(m_modelClient, &ModelClient::requestStarted, this, [this]() {
+        m_logList->addItem(tr("Thinking with GPT-5…"));
+        m_logList->scrollToBottom();
+    });
+    connect(m_modelClient, &ModelClient::requestProgress, this, [this](qint64 rec, qint64 tot){
+        if (tot > 0) {
+            m_logList->addItem(tr("Received %1/%2 bytes").arg(rec).arg(tot));
+        } else {
+            m_logList->addItem(tr("Received %1 bytes").arg(rec));
+        }
+        m_logList->scrollToBottom();
+    });
+    connect(m_modelClient, &ModelClient::requestFinished, this, [this]() {
+        m_logList->addItem(tr("Model response finished"));
+        m_logList->scrollToBottom();
+    });
 }
 
 void AssistantPanel::onSubmit()
 {
     const auto text = m_input->text().trimmed();
     if (text.isEmpty()) { return; }
-    executeCommand(text);
+    if (!maybeInvokeModel(text)) {
+        executeCommand(text);
+    }
     // UX: add to history, clear prompt, re-focus like Cursor
     if (m_history.isEmpty() || m_history.back() != text) { m_history.push_back(text); }
     m_historyPos = m_history.size();
@@ -92,6 +135,86 @@ void AssistantPanel::executeCommand(const QString& text)
     if (tryCreateSampleEdm(text)) { m_logList->addItem(tr("Created sample EDM setup: %1").arg(text)); m_logList->scrollToBottom(); return; }
 
     m_logList->addItem(tr("Did not understand: %1").arg(text));
+    m_logList->scrollToBottom();
+}
+
+bool AssistantPanel::maybeInvokeModel(const QString& text)
+{
+    if (!m_aiToggle || !m_aiToggle->isChecked()) return false;
+    if (!m_modelClient) return false;
+    // For now, send everything that isn't matched by fast-path keywords
+    const bool looksComplex = !text.contains(QRegularExpression("(?i)^(tempo|transpose|quantize|add|loop|repeat)"));
+    if (!looksComplex) return false;
+    const auto prompt = buildPlannerPrompt(text);
+    m_modelClient->complete(prompt);
+    // log handled by requestStarted/Progress
+    return true;
+}
+
+QString AssistantPanel::buildPlannerPrompt(const QString& userText) const
+{
+    // Provide a short system prompt with available tools summary.
+    QString tools = R"(You are a music production assistant inside LMMS.
+You can do these actions via a planner that emits JSON with a list of steps.
+Each step has: {"action": "set_tempo|add_instrument|add_effect|add_midi_notes|transpose|quantize|loop|route|sidechain", ...}.)";
+    return tools + "\nUser: " + userText;
+}
+
+void AssistantPanel::handleModelPlan(const QString& responseJson)
+{
+    // Expect an OpenAI responses JSON. Try to extract a JSON object from content.
+    QJsonParseError err{};
+    const auto doc = QJsonDocument::fromJson(responseJson.toUtf8(), &err);
+    if (err.error != QJsonParseError::NoError) {
+        m_logList->addItem(tr("Model parse error: %1").arg(err.errorString()));
+        m_logList->scrollToBottom();
+        return;
+    }
+    // Heuristic: if it contains {"plan": {"steps": [...]}} then run steps
+    QJsonObject root = doc.object();
+    QJsonObject plan = root.value("plan").toObject();
+    QJsonArray steps = plan.value("steps").toArray();
+    if (steps.isEmpty()) {
+        // Some models return {"output_text": "..."} or {"content":[...]}
+        m_logList->addItem(tr("Model responded, but no steps found. Using local fallback."));
+        // Fallback: seed a sample EDM scaffold so user gets immediate output
+        tryCreateSampleEdm(QStringLiteral("sample edm"));
+        m_logList->scrollToBottom();
+        return;
+    }
+    int applied = 0;
+    for (const auto& v : steps) {
+        const auto o = v.toObject();
+        const auto action = o.value("action").toString();
+        if (action == "set_tempo") {
+            const int bpm = o.value("bpm").toInt();
+            if (bpm > 0) { Engine::getSong()->tempoModel().setValue(bpm); applied++; }
+        } else if (action == "add_instrument") {
+            const auto plugin = o.value("plugin").toString();
+            const auto name = o.value("name").toString(plugin);
+            addInstrumentTrack(plugin, name);
+            applied++;
+        } else if (action == "add_effect") {
+            const auto track = o.value("track").toString();
+            const auto fx = o.value("fx").toString();
+            if (auto* it = findInstrumentTrackByName(track)) { addEffectToInstrumentTrack(it, fx); applied++; }
+        } else if (action == "transpose") {
+            const auto track = o.value("track").toString();
+            const int semitones = o.value("semitones").toInt();
+            InstrumentTrack* it = track.isEmpty() ? defaultInstrumentTrack() : findInstrumentTrackByName(track);
+            if (it) { transposeInstrumentTrack(it, semitones); applied++; }
+        } else if (action == "quantize") {
+            const auto grid = o.value("grid").toString("1/16");
+            tryQuantize(QStringLiteral("quantize %1").arg(grid));
+            applied++;
+        } else if (action == "loop") {
+            const auto span = o.value("span").toString("4bars");
+            tryLoopRepeat(QStringLiteral("loop %1 across song").arg(span));
+            applied++;
+        }
+    }
+    Engine::getSong()->setModified();
+    m_logList->addItem(tr("Applied %1 model steps").arg(applied));
     m_logList->scrollToBottom();
 }
 
@@ -476,7 +599,7 @@ bool AssistantPanel::tryCreateSampleEdm(const QString& text)
         if (mc) {
             // 4-on-the-floor: add step notes each beat
             for (int b = 0; b < 4; ++b) {
-                Note n(TimePos(bar / 8), TimePos(b * bar), Note::DefaultMiddleKey - 36); // low kick key
+                Note n(TimePos(bar / 8), TimePos(b * bar), DefaultMiddleKey - 36); // low kick key
                 mc->addNote(n, false);
             }
         }
@@ -485,7 +608,7 @@ bool AssistantPanel::tryCreateSampleEdm(const QString& text)
         auto* mc = ensureMidiClip(hats, 0, len);
         if (mc) {
             for (int s = bar / 2; s < len; s += bar) {
-                Note n(TimePos(bar / 16), TimePos(s), Note::DefaultMiddleKey + 12);
+                Note n(TimePos(bar / 16), TimePos(s), DefaultMiddleKey + 12);
                 mc->addNote(n, false);
             }
         }
@@ -495,7 +618,7 @@ bool AssistantPanel::tryCreateSampleEdm(const QString& text)
         if (mc) {
             // claps on 2 and 4
             for (int b : {1, 3}) {
-                Note n(TimePos(bar / 8), TimePos(b * bar), Note::DefaultMiddleKey);
+                Note n(TimePos(bar / 8), TimePos(b * bar), DefaultMiddleKey);
                 mc->addNote(n, false);
             }
         }
@@ -504,7 +627,7 @@ bool AssistantPanel::tryCreateSampleEdm(const QString& text)
         auto* mc = ensureMidiClip(bass, 0, len);
         if (mc) {
             for (int i = 0; i < 8; ++i) {
-                Note n(TimePos(bar / 8), TimePos(i * bar / 2), Note::DefaultMiddleKey - 12);
+                Note n(TimePos(bar / 8), TimePos(i * bar / 2), DefaultMiddleKey - 12);
                 mc->addNote(n, false);
             }
         }
@@ -513,7 +636,7 @@ bool AssistantPanel::tryCreateSampleEdm(const QString& text)
         auto* mc = ensureMidiClip(lead, 0, len);
         if (mc) {
             for (int i = 0; i < 4; ++i) {
-                Note n(TimePos(bar / 4), TimePos(i * bar), Note::DefaultMiddleKey + 7);
+                Note n(TimePos(bar / 4), TimePos(i * bar), DefaultMiddleKey + 7);
                 mc->addNote(n, false);
             }
         }

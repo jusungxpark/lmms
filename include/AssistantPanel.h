@@ -18,6 +18,7 @@
 class QListWidget;
 class QLineEdit;
 class QPushButton;
+class QCheckBox;
 
 namespace lmms {
 class Track; // forward decl
@@ -47,6 +48,9 @@ private:
     bool tryTransposeTrack(const QString& text);
     bool tryAddEffect(const QString& text);
     bool tryLoopRepeat(const QString& text);
+    bool maybeInvokeModel(const QString& text);
+    void handleModelPlan(const QString& responseJson);
+    QString buildPlannerPrompt(const QString& userText) const;
 
     // Helpers
     InstrumentTrack* findInstrumentTrackByName(const QString& name) const;
@@ -72,10 +76,14 @@ private:
     QListWidget* m_logList {nullptr};
     QLineEdit* m_input {nullptr};
     QPushButton* m_runBtn {nullptr};
+    QCheckBox* m_aiToggle {nullptr};
 
     // Command history (like Cursor): Up/Down to navigate
     QStringList m_history;
     int m_historyPos {-1};
+
+    // LLM client (configured via env or future settings UI)
+    class ModelClient* m_modelClient {nullptr};
 };
 
 } // namespace lmms::gui
