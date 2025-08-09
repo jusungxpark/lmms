@@ -11,6 +11,7 @@
 
 #include <QWidget>
 #include <QRegularExpression>
+#include <QStringList>
 
 #include "SideBarWidget.h"
 
@@ -19,7 +20,8 @@ class QLineEdit;
 class QPushButton;
 
 namespace lmms {
-class Track;
+class Track; // forward decl
+class Clip;  // forward decl
 class InstrumentTrack;
 class MidiClip;
 class Note;
@@ -38,11 +40,13 @@ private slots:
     void onSubmit();
 
 private:
+    bool eventFilter(QObject* obj, QEvent* event) override;
     // Parsing and execution
     void executeCommand(const QString& text);
     bool trySetTempo(const QString& text);
     bool tryTransposeTrack(const QString& text);
     bool tryAddEffect(const QString& text);
+    bool tryLoopRepeat(const QString& text);
 
     // Helpers
     InstrumentTrack* findInstrumentTrackByName(const QString& name) const;
@@ -52,11 +56,26 @@ private:
     bool tryQuantize(const QString& text);
     static int parseGridToTicks(const QString& gridStr);
     bool tryStyle(const QString& text);
+    bool tryCreateSampleEdm(const QString& text);
+
+    // Loop/duplicate helpers
+    static class lmms::Clip* earliestNonEmptyClip(lmms::Track* track);
+    static bool duplicateClipAcrossTicks(lmms::Track* track, class lmms::Clip* src, int64_t untilTicks);
+    static int64_t minutesToTicks(double minutes);
+    static int64_t secondsToTicks(double seconds);
+
+    // Creation helpers
+    lmms::InstrumentTrack* addInstrumentTrack(const QString& pluginName, const QString& displayName);
+    lmms::MidiClip* ensureMidiClip(lmms::InstrumentTrack* track, int startTicks, int lengthTicks);
 
     // UI
     QListWidget* m_logList {nullptr};
     QLineEdit* m_input {nullptr};
     QPushButton* m_runBtn {nullptr};
+
+    // Command history (like Cursor): Up/Down to navigate
+    QStringList m_history;
+    int m_historyPos {-1};
 };
 
 } // namespace lmms::gui

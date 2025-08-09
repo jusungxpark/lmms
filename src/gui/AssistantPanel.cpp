@@ -11,6 +11,8 @@
 #include <QPushButton>
 #include <QLabel>
 #include <algorithm>
+#include <QEvent>
+#include <QKeyEvent>
 #include <QRegularExpression>
 
 #include "Engine.h"
@@ -26,6 +28,7 @@
 #include "EffectSelectDialog.h"
 #include "TimePos.h"
 #include "volume.h"
+#include "Clip.h"
 #include "embed.h"
 
 using namespace lmms;
@@ -59,6 +62,10 @@ AssistantPanel::AssistantPanel(QWidget* parent)
 
     connect(m_runBtn, &QPushButton::clicked, this, &AssistantPanel::onSubmit);
     connect(m_input, &QLineEdit::returnPressed, this, &AssistantPanel::onSubmit);
+
+    // UX: focus input, select all; install history key handling
+    m_input->installEventFilter(this);
+    m_input->setFocus(Qt::OtherFocusReason);
 }
 
 void AssistantPanel::onSubmit()
@@ -66,18 +73,67 @@ void AssistantPanel::onSubmit()
     const auto text = m_input->text().trimmed();
     if (text.isEmpty()) { return; }
     executeCommand(text);
+    // UX: add to history, clear prompt, re-focus like Cursor
+    if (m_history.isEmpty() || m_history.back() != text) { m_history.push_back(text); }
+    m_historyPos = m_history.size();
+    m_input->clear();
+    m_input->setFocus(Qt::OtherFocusReason);
 }
 
 void AssistantPanel::executeCommand(const QString& text)
 {
     // Try specific parsers in order. If any succeeds, log and return.
-    if (trySetTempo(text)) { m_logList->addItem(tr("Set tempo: %1").arg(text)); return; }
-    if (tryTransposeTrack(text)) { m_logList->addItem(tr("Transposed: %1").arg(text)); return; }
-    if (tryAddEffect(text)) { m_logList->addItem(tr("Added effect: %1").arg(text)); return; }
-    if (tryQuantize(text)) { m_logList->addItem(tr("Quantized: %1").arg(text)); return; }
-    if (tryStyle(text)) { m_logList->addItem(tr("Applied style: %1").arg(text)); return; }
+    if (trySetTempo(text)) { m_logList->addItem(tr("Set tempo: %1").arg(text)); m_logList->scrollToBottom(); return; }
+    if (tryTransposeTrack(text)) { m_logList->addItem(tr("Transposed: %1").arg(text)); m_logList->scrollToBottom(); return; }
+    if (tryAddEffect(text)) { m_logList->addItem(tr("Added effect: %1").arg(text)); m_logList->scrollToBottom(); return; }
+    if (tryQuantize(text)) { m_logList->addItem(tr("Quantized: %1").arg(text)); m_logList->scrollToBottom(); return; }
+    if (tryStyle(text)) { m_logList->addItem(tr("Applied style: %1").arg(text)); m_logList->scrollToBottom(); return; }
+    if (tryLoopRepeat(text)) { m_logList->addItem(tr("Looped/repeated: %1").arg(text)); m_logList->scrollToBottom(); return; }
+    if (tryCreateSampleEdm(text)) { m_logList->addItem(tr("Created sample EDM setup: %1").arg(text)); m_logList->scrollToBottom(); return; }
 
     m_logList->addItem(tr("Did not understand: %1").arg(text));
+    m_logList->scrollToBottom();
+}
+
+bool AssistantPanel::eventFilter(QObject* obj, QEvent* event)
+{
+    if (obj == m_input && event->type() == QEvent::KeyPress)
+    {
+        auto* ke = static_cast<QKeyEvent*>(event);
+        if (ke->key() == Qt::Key_Up)
+        {
+            if (!m_history.isEmpty())
+            {
+                m_historyPos = std::max(0, m_historyPos - 1);
+                m_input->setText(m_history.at(m_historyPos));
+                m_input->selectAll();
+            }
+            return true;
+        }
+        if (ke->key() == Qt::Key_Down)
+        {
+            if (!m_history.isEmpty())
+            {
+                m_historyPos = std::min(m_history.size(), m_historyPos + 1);
+                if (m_historyPos >= m_history.size())
+                {
+                    m_input->clear();
+                }
+                else
+                {
+                    m_input->setText(m_history.at(m_historyPos));
+                    m_input->selectAll();
+                }
+            }
+            return true;
+        }
+        if (ke->key() == Qt::Key_Escape)
+        {
+            m_input->clear();
+            return true;
+        }
+    }
+    return SideBarWidget::eventFilter(obj, event);
 }
 
 bool AssistantPanel::tryQuantize(const QString& text)
@@ -300,6 +356,198 @@ bool AssistantPanel::tryStyle(const QString& text)
 
     Engine::getSong()->setModified();
     return true;
+}
+
+// Loop/duplicate: "loop 1s to 1m", "repeat this clip to 64 bars", "loop 4 bars across the song"
+bool AssistantPanel::tryLoopRepeat(const QString& text)
+{
+    static const QRegularExpression reTimeRange("(?i)\\b(loop|repeat)\\s+(?<len>(\\d+)(s|sec|seconds|m|min|minutes|bars?))\\s+(to|across|for)\\s+(?<target>(\\d+)(s|sec|seconds|m|min|minutes|bars?))");
+    static const QRegularExpression reToMinutes("(?i)\\b(loop|repeat).*(to|for)\\s+(?<target>(\\d+)(s|sec|seconds|m|min|minutes|bars?))");
+    auto song = Engine::getSong();
+    if (!song) { return false; }
+
+    InstrumentTrack* it = defaultInstrumentTrack();
+    if (!it) { return false; }
+
+    auto* srcClip = earliestNonEmptyClip(it);
+    if (!srcClip) { return false; }
+
+    // Determine end ticks from the command
+    auto parseSpan = [&](const QString& span)->int64_t {
+        static const QRegularExpression re("(?i)^(?<n>\\d+)(?<u>s|sec|seconds|m|min|minutes|bars?)$");
+        auto m = re.match(span.trimmed());
+        if (!m.hasMatch()) return 0;
+        const double n = m.captured("n").toDouble();
+        const auto u = m.captured("u").toLower();
+        if (u.startsWith("s")) return secondsToTicks(n);
+        if (u.startsWith("m")) return minutesToTicks(n);
+        if (u.startsWith("bar")) return static_cast<int64_t>(n) * TimePos::ticksPerBar();
+        return 0;
+    };
+
+    int64_t untilTicks = 0;
+    auto m1 = reTimeRange.match(text);
+    if (m1.hasMatch()) {
+        const auto target = m1.captured("target");
+        untilTicks = parseSpan(target);
+    } else {
+        auto m2 = reToMinutes.match(text);
+        if (!m2.hasMatch()) { return false; }
+        untilTicks = parseSpan(m2.captured("target"));
+    }
+    if (untilTicks <= 0) { return false; }
+
+    it->addJournalCheckPoint();
+    const bool ok = duplicateClipAcrossTicks(it, srcClip, untilTicks);
+    if (ok) { song->updateLength(); song->setModified(); }
+    return ok;
+}
+
+lmms::Clip* AssistantPanel::earliestNonEmptyClip(lmms::Track* track)
+{
+    if (!track) return nullptr;
+    lmms::Clip* best = nullptr;
+    for (auto* c : track->getClips()) {
+        if (!c) continue;
+        if (!best || c->startPosition() < best->startPosition()) {
+            best = c;
+        }
+    }
+    return best;
+}
+
+bool AssistantPanel::duplicateClipAcrossTicks(lmms::Track* track, lmms::Clip* src, int64_t untilTicks)
+{
+    if (!track || !src) return false;
+    const auto clipLen = static_cast<int>(src->length());
+    if (clipLen <= 0) return false;
+
+    // Start from first full block after the source clip start
+    int pos = static_cast<int>(src->startPosition()) + clipLen;
+    const int endTicks = static_cast<int>(untilTicks);
+
+    while (pos < endTicks) {
+        auto* clone = src->clone();
+        clone->movePosition(pos);
+        track->addClip(clone);
+        pos += clipLen;
+    }
+    return true;
+}
+
+int64_t AssistantPanel::minutesToTicks(double minutes)
+{
+    const auto bpm = Engine::getSong()->getTempo();
+    const double ms = minutes * 60.0 * 1000.0;
+    const double ticks = ms * bpm / 1250.0; // inverse of ticksToMilliseconds
+    return static_cast<int64_t>(ticks);
+}
+
+int64_t AssistantPanel::secondsToTicks(double seconds)
+{
+    return minutesToTicks(seconds / 60.0);
+}
+
+// Create a minimal EDM scaffold: kick/hats/claps + bass + lead, tempo set
+bool AssistantPanel::tryCreateSampleEdm(const QString& text)
+{
+    if (!text.contains(QRegularExpression("(?i)create .*edm|make .*edm|sample edm"))) { return false; }
+    auto song = Engine::getSong();
+    if (!song) { return false; }
+    song->tempoModel().setValue(128);
+
+    // Add Kicker (kick)
+    auto* kick = addInstrumentTrack("kicker", "Kicker");
+    // Add hats (use TripleOscillator with noise-ish preset fallback)
+    auto* hats = addInstrumentTrack("tripleoscillator", "Hats");
+    // Add claps (sampler or TripleOsc)
+    auto* claps = addInstrumentTrack("tripleoscillator", "Claps");
+    // Add bass
+    auto* bass = addInstrumentTrack("tripleoscillator", "Bass");
+    // Add lead
+    auto* lead = addInstrumentTrack("tripleoscillator", "Lead");
+
+    const int bar = TimePos::ticksPerBar();
+    const int len = 4 * bar; // 4 bars
+
+    // Program simple patterns: this is MVP, just seed notes
+    if (kick) {
+        auto* mc = ensureMidiClip(kick, 0, len);
+        if (mc) {
+            // 4-on-the-floor: add step notes each beat
+            for (int b = 0; b < 4; ++b) {
+                Note n(TimePos(bar / 8), TimePos(b * bar), Note::DefaultMiddleKey - 36); // low kick key
+                mc->addNote(n, false);
+            }
+        }
+    }
+    if (hats) {
+        auto* mc = ensureMidiClip(hats, 0, len);
+        if (mc) {
+            for (int s = bar / 2; s < len; s += bar) {
+                Note n(TimePos(bar / 16), TimePos(s), Note::DefaultMiddleKey + 12);
+                mc->addNote(n, false);
+            }
+        }
+    }
+    if (claps) {
+        auto* mc = ensureMidiClip(claps, 0, len);
+        if (mc) {
+            // claps on 2 and 4
+            for (int b : {1, 3}) {
+                Note n(TimePos(bar / 8), TimePos(b * bar), Note::DefaultMiddleKey);
+                mc->addNote(n, false);
+            }
+        }
+    }
+    if (bass) {
+        auto* mc = ensureMidiClip(bass, 0, len);
+        if (mc) {
+            for (int i = 0; i < 8; ++i) {
+                Note n(TimePos(bar / 8), TimePos(i * bar / 2), Note::DefaultMiddleKey - 12);
+                mc->addNote(n, false);
+            }
+        }
+    }
+    if (lead) {
+        auto* mc = ensureMidiClip(lead, 0, len);
+        if (mc) {
+            for (int i = 0; i < 4; ++i) {
+                Note n(TimePos(bar / 4), TimePos(i * bar), Note::DefaultMiddleKey + 7);
+                mc->addNote(n, false);
+            }
+        }
+    }
+
+    // Basic FX polish
+    if (lead) { addEffectToInstrumentTrack(lead, "stereoenhancer"); }
+    if (kick) { addEffectToInstrumentTrack(kick, "compressor"); }
+
+    song->setModified();
+    return true;
+}
+
+lmms::InstrumentTrack* AssistantPanel::addInstrumentTrack(const QString& pluginName, const QString& displayName)
+{
+    auto* t = dynamic_cast<InstrumentTrack*>(Track::create(Track::Type::Instrument, Engine::getSong()));
+    if (!t) return nullptr;
+    t->setName(displayName);
+    t->loadInstrument(pluginName);
+    return t;
+}
+
+lmms::MidiClip* AssistantPanel::ensureMidiClip(lmms::InstrumentTrack* track, int startTicks, int lengthTicks)
+{
+    if (!track) return nullptr;
+    for (auto* c : track->getClips()) {
+        if (c && static_cast<int>(c->startPosition()) == startTicks) {
+            return dynamic_cast<MidiClip*>(c);
+        }
+    }
+    auto* clip = dynamic_cast<MidiClip*>(track->createClip(TimePos(startTicks)));
+    if (!clip) return nullptr;
+    clip->changeLength(TimePos(lengthTicks));
+    return clip;
 }
 
 } // namespace lmms::gui
