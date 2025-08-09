@@ -36,6 +36,7 @@
 #include <QSplitter>
 
 #include "AboutDialog.h"
+#include "AiSidebar.h"
 #include "AutomationEditor.h"
 #include "ControllerRackView.h"
 #include "DeprecationHelper.h"
@@ -85,7 +86,8 @@ MainWindow::MainWindow() :
 	m_autoSaveTimer( this ),
 	m_viewMenu( nullptr ),
 	m_metronomeToggle( 0 ),
-	m_session( SessionState::Normal )
+	m_session( SessionState::Normal ),
+	m_aiSidebar( nullptr )
 {
 	setAttribute( Qt::WA_DeleteOnClose );
 
@@ -229,6 +231,20 @@ MainWindow::MainWindow() :
 
 	maximized = isMaximized();
 	new QShortcut(QKeySequence(Qt::Key_F11), this, SLOT(toggleFullscreen()));
+	new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_8), this, SLOT(toggleAiSidebar()));
+	
+	// Initialize AI Sidebar
+	m_aiSidebar = new AiSidebar(this);
+	m_aiSidebar->hide();  // Hidden by default
+	connect(this, &MainWindow::periodicUpdate, [this]() {
+		if (m_aiSidebar && m_aiSidebar->isVisible()) {
+			// Update AI sidebar position to follow window resizing
+			int x = width() - m_aiSidebar->width();
+			int y = m_toolBar->height();
+			int h = height() - m_toolBar->height();
+			m_aiSidebar->setGeometry(x, y, m_aiSidebar->width(), h);
+		}
+	});
 
 	if (ConfigManager::inst()->value("tooltips", "disabled").toInt())
 	{
@@ -241,6 +257,8 @@ MainWindow::MainWindow() :
 
 MainWindow::~MainWindow()
 {
+	delete m_aiSidebar;
+	
 	for( PluginView *view : m_tools )
 	{
 		delete view->model();
@@ -1074,6 +1092,10 @@ void MainWindow::updateViewMenu()
 			      tr( "Project Notes" ) + "\tCtrl+7",
 			      this, SLOT(toggleProjectNotesWin())
 		);
+	m_viewMenu->addAction(embed::getIconPixmap( "automation" ), // Using automation icon as placeholder
+			      tr( "AI Assistant" ) + "\tCtrl+8",
+			      this, SLOT(toggleAiSidebar())
+		);
 
 	m_viewMenu->addSeparator();
 	
@@ -1156,6 +1178,24 @@ void MainWindow::onToggleMetronome()
 void MainWindow::toggleControllerRack()
 {
 	toggleWindow( getGUI()->getControllerRackView() );
+}
+
+
+void MainWindow::toggleAiSidebar()
+{
+	if (!m_aiSidebar) return;
+	
+	if (m_aiSidebar->isVisible()) {
+		m_aiSidebar->hide();
+	} else {
+		// Position the sidebar on the right side
+		int x = width() - m_aiSidebar->width();
+		int y = m_toolBar->height();
+		int h = height() - m_toolBar->height();
+		m_aiSidebar->setGeometry(x, y, m_aiSidebar->width(), h);
+		m_aiSidebar->show();
+		m_aiSidebar->raise();
+	}
 }
 
 
