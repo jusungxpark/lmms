@@ -11,6 +11,7 @@
 #include <QHash>
 #include <QTimer>
 #include <memory>
+#include "AudioAnalyzer.h"
 
 QT_BEGIN_NAMESPACE
 class QVBoxLayout;
@@ -81,15 +82,17 @@ public:
 private slots:
     void onSend();
     void onNetworkFinished();
+    void onActionButtonClicked();
 
 private:
     // UI
     void setupUI();
     void addMessage(const QString& text, const QString& role);
+    void addMessageWithActions(const QString& text, const QString& role, const QStringList& actions);
 
     // GPT-5 request
     void sendToGPT5(const QString& message);
-    void processResponse(const QJsonObject& response);
+    bool processResponse(const QJsonObject& response);
 
     // Tool registry and execution
     QJsonArray getToolDefinitions() const;
@@ -116,6 +119,21 @@ private:
     AiToolResult toolCreateMelody(const QJsonObject& p);
     AiToolResult toolCreateDrumPattern(const QJsonObject& p);
     
+    // Comprehensive inspection and analysis tools
+    AiToolResult toolInspectTrack(const QJsonObject& p);
+    AiToolResult toolGetTrackNotes(const QJsonObject& p);
+    AiToolResult toolModifyNotes(const QJsonObject& p);
+    AiToolResult toolAnalyzeBeforeWriting(const QJsonObject& p);
+    
+    // Effect management tools
+    AiToolResult toolListEffects(const QJsonObject& p);
+    AiToolResult toolConfigureEffect(const QJsonObject& p);
+    AiToolResult toolRemoveEffect(const QJsonObject& p);
+    
+    // Autonomous and self-testing tools
+    AiToolResult toolAutonomousCompose(const QJsonObject& p);
+    AiToolResult toolRunSelfTest(const QJsonObject& p);
+    
     // Advanced automation & effects
     AiToolResult toolCreateSidechainPump(const QJsonObject& p);
     AiToolResult toolCreateFilterSweep(const QJsonObject& p);
@@ -128,6 +146,10 @@ private:
     AiToolResult toolCreateUndo(const QJsonObject& p);
     AiToolResult toolPreviewChanges(const QJsonObject& p);
     AiToolResult toolExportAudio(const QJsonObject& p);
+    
+    // ========= COMPREHENSIVE MIXING & ANALYSIS TOOLS =========
+    AiToolResult toolBalanceTrackVolumes(const QJsonObject& p);
+    AiToolResult toolCreateFullProduction(const QJsonObject& p);
 
     // Symbolic reasoning (Architecture principle #1)
     ProjectSnapshot captureSnapshot() const;
@@ -157,12 +179,45 @@ private:
     // Natural language processing
     QJsonObject parseMusicalIntent(const QString& request);
     
+    // Context-aware AI decision making
+    QJsonObject analyzeProjectContext() const;
+    QJsonObject makeIntelligentParameters(const QString& trackType, const QJsonObject& context) const;
+    QString selectComplementaryInstrument(const QString& trackType, const QJsonObject& context) const;
+    
     // Helpers
     InstrumentTrack* findInstrumentTrack(const QString& name) const;
     Track* findTrack(const QString& name) const;
     void initializeAgents();
     void setupSafetyGuards();
     void loadApiKeyFromEnv();
+    void executeApprovedPlan(const QString& originalRequest);
+    
+    // Autonomous execution functions
+    void executeAutonomousAction(const QString& planText);
+    void createFullArrangement(const QString& style);
+    void validateAndFixAllTracks(); // Iterative validation system
+    void createDrumTrack();
+    void createBassTrack();
+    void createChordTrack();
+    void createLeadTrack();
+    void createPadTrack();
+    
+    // Creative music generation functions
+    void createDrumTrackCreative(const QString& style, int bpm);
+    void createBassTrackCreative(const QString& key, const QString& scale, const QString& progression);
+    void createChordTrackCreative(const QString& key, const QString& progression);
+    void createLeadTrackCreative(const QString& key, const QString& scale);
+    void createPadTrackCreative(const QString& key, const QString& progression);
+    void applySidechainWithVariation();
+    void createDynamicArrangementStructure();
+    
+    // Professional multi-track production
+    void createProfessionalArrangement(const QString& userRequest);
+    void createProfessionalDrums(int genre);
+    void createProfessionalBass(int genre, const QString& key, const QString& progression);
+    void createProfessionalMelodic(int genre, const QString& key, const QString& scale, const QString& progression);
+    void createProfessionalFX(int genre);
+    void applyProfessionalMixing(int genre);
     
 
 private:
@@ -217,6 +272,21 @@ private:
     // Safety and guardrails
     QTimer* m_safetyTimer;
     QJsonObject m_styleInvariants; // Tempo, key constraints
+    
+    // Pending actions for approval workflow
+    QString m_pendingUserRequest;
+    QJsonObject m_pendingActionPlan;
+    
+    // Current user input for autonomous execution
+    QString m_currentUserInput;
+    
+    // Audio feedback system
+    std::unique_ptr<AudioListener> m_audioListener;
+    bool m_audioFeedbackEnabled {true};
+    
+    // Get audio feedback for AI decisions
+    QJsonObject getAudioFeedback() const;
+    void updateFromAudioFeedback(const QJsonObject& feedback);
 };
 
 } // namespace lmms::gui

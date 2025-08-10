@@ -1248,10 +1248,10 @@ AiToolResult AiSidebar::toolCreateTrack(const QJsonObject& p)
         if (!inst.isEmpty()) {
             // Map common instrument names to LMMS plugin names
             QString pluginName = inst;
-            if (inst == "tripleoscillator") {
-                pluginName = "TripleOscillator";
-            } else if (inst == "kicker") {
-                pluginName = "Kicker";
+            if (inst.toLower() == "tripleoscillator") {
+                pluginName = "tripleoscillator";
+            } else if (inst.toLower() == "kicker") {
+                pluginName = "kicker";
             } else if (inst.toLower() == "gigplayer" || inst.toLower() == "gig") {
                 pluginName = "GigPlayer";  // Requires .gig files
             } else if (inst.toLower() == "slicert" || inst.toLower() == "slicer") {

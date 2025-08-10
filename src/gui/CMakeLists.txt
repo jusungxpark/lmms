@@ -14,6 +14,8 @@ SET(LMMS_SRCS
 	gui/EffectView.cpp
 	gui/AssistantPanel.cpp
 	gui/AiSidebar.cpp
+	gui/AudioAnalyzer.cpp
+	gui/VibeAnalyzer.cpp
 	gui/embed.cpp
 	gui/FileBrowser.cpp
 	gui/FileRevealer.cpp
