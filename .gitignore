@@ -46,6 +46,7 @@ Testing/
 .*.sw?
 .DS_Store
 *~
+.env
 Thumbs.db
 .AppleDouble
 .LSOverride

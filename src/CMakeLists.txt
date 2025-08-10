@@ -184,6 +184,7 @@ SET(LMMS_REQUIRED_LIBS ${LMMS_REQUIRED_LIBS}
 target_link_libraries(lmmsobjs
 	${LMMS_REQUIRED_LIBS}
 )
+target_link_libraries(lmmsobjs Qt5::Network)
 target_static_libraries(lmmsobjs ringbuffer)
 
 set_target_properties(lmms PROPERTIES

@@ -14,6 +14,10 @@ SET(LMMS_SRCS
 	gui/EffectControlDialog.cpp
 	gui/EffectRackView.cpp
 	gui/EffectView.cpp
+	gui/AssistantPanel.cpp
+	gui/AiSidebar.cpp
+	gui/AudioAnalyzer.cpp
+	gui/VibeAnalyzer.cpp
 	gui/embed.cpp
 	gui/FileBrowser.cpp
 	gui/FileRevealer.cpp
@@ -40,8 +44,8 @@ SET(LMMS_SRCS
 	gui/SampleTrackWindow.cpp
 	gui/SampleThumbnail.cpp
 	gui/SendButtonIndicator.cpp
-	gui/SideBar.cpp
-	gui/SideBarWidget.cpp
+    gui/SideBar.cpp
+    gui/SideBarWidget.cpp
 	gui/StringPairDrag.cpp
 	gui/SubWindow.cpp
 	gui/ToolPluginView.cpp
