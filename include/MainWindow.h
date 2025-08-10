@@ -43,6 +43,7 @@ namespace lmms
 namespace gui
 {
 
+class AiSidebar;
 class PluginView;
 class SubWindow;
 class ToolButton;
@@ -165,6 +166,7 @@ public slots:
 	void toggleMixerWin();
 	void togglePianoRollWin();
 	void toggleControllerRack();
+	void toggleAiSidebar();
 	void toggleFullscreen();
 
 	void updatePlayPauseIcons();
@@ -251,6 +253,8 @@ private:
 	SessionState m_session;
 	
 	bool maximized;
+	
+	AiSidebar * m_aiSidebar;
 
 private slots:
 	void browseHelp();

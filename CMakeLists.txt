@@ -182,6 +182,7 @@ include_directories(SYSTEM
 	${Qt5Gui_INCLUDE_DIRS}
 	${Qt5Widgets_INCLUDE_DIRS}
 	${Qt5Xml_INCLUDE_DIRS}
+	${Qt5Network_INCLUDE_DIRS}
 )
 
 SET(QT_LIBRARIES
@@ -190,6 +191,7 @@ SET(QT_LIBRARIES
 	Qt5::Widgets
 	Qt5::Xml
 	Qt5::Svg
+	Qt5::Network
 )
 
 IF(LMMS_BUILD_LINUX AND WANT_VST)

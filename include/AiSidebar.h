@@ -292,5 +292,3 @@ private:
 } // namespace lmms::gui
 
 #endif
-
-

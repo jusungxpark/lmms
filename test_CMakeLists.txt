@@ -1,0 +1,22 @@
+cmake_minimum_required(VERSION 3.13)
+project(TestAiSidebar)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_package(Qt5 REQUIRED COMPONENTS Core Widgets Network)
+
+set(CMAKE_AUTOMOC ON)
+
+include_directories(include)
+
+add_executable(test_ai_sidebar
+    test_ai_sidebar.cpp
+    src/gui/AiSidebar.cpp
+)
+
+target_link_libraries(test_ai_sidebar
+    Qt5::Core
+    Qt5::Widgets
+    Qt5::Network
+)
