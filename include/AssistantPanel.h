@@ -48,9 +48,17 @@ private:
     bool tryTransposeTrack(const QString& text);
     bool tryAddEffect(const QString& text);
     bool tryLoopRepeat(const QString& text);
+    bool tryLoopTimes(const QString& text);
+    bool tryMakeBeat(const QString& text);
+    bool tryHelp(const QString& text);
+    bool tryRemoveTrack(const QString& text);
+    bool tryIntensifyKicker(const QString& text);
     bool maybeInvokeModel(const QString& text);
     void handleModelPlan(const QString& responseJson);
     QString buildPlannerPrompt(const QString& userText) const;
+    void log(const QString& message);
+    bool executeSteps(const QJsonArray& steps);
+    QJsonArray buildFallbackPlan(const QString& userText) const;
 
     // Helpers
     InstrumentTrack* findInstrumentTrackByName(const QString& name) const;
@@ -71,6 +79,9 @@ private:
     // Creation helpers
     lmms::InstrumentTrack* addInstrumentTrack(const QString& pluginName, const QString& displayName);
     lmms::MidiClip* ensureMidiClip(lmms::InstrumentTrack* track, int startTicks, int lengthTicks);
+    lmms::InstrumentTrack* getOrCreateInstrument(const QString& name, const QString& pluginFallback);
+    void addNote(lmms::InstrumentTrack* it, int start, int len, int key);
+    bool removeInstrumentTrackByName(const QString& name);
 
     // UI
     QListWidget* m_logList {nullptr};
@@ -84,6 +95,12 @@ private:
 
     // LLM client (configured via env or future settings UI)
     class ModelClient* m_modelClient {nullptr};
+    
+    // Action executor system
+    class AssistantActions* m_actions {nullptr};
+
+    // Context for recent actions
+    lmms::InstrumentTrack* m_lastCreatedTrack {nullptr};
 };
 
 } // namespace lmms::gui

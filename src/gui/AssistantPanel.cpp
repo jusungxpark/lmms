@@ -1,8 +1,11 @@
+// (moved function bodies appear later within the namespace)
 /*
  * AssistantPanel.cpp - NL assistant panel for LMMS
  */
 
 #include "AssistantPanel.h"
+#include "AssistantActions.h"
+#include "AssistantCommandBus.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -40,8 +43,91 @@ using namespace lmms;
 
 namespace lmms::gui {
 
+bool AssistantPanel::tryMakeBeat(const QString& text)
+{
+    if (!text.contains(QRegularExpression("(?i)^(make|create).*(beat|loop|groove)"))) return false;
+    auto* kick = getOrCreateInstrument("Kick", "kicker");
+    auto* hats = getOrCreateInstrument("Hats", "tripleoscillator");
+    auto* bass = getOrCreateInstrument("Bass", "tripleoscillator");
+    if (!kick || !hats || !bass) return false;
+    const int bar = TimePos::ticksPerBar();
+    const int beat = bar / 4;
+    for (int i = 0; i < 16; ++i) addNote(kick, i * beat, beat/2, 36);
+    for (int i = 0; i < 16; ++i) addNote(hats, i * beat + beat/2, beat/4, 72);
+    for (int i = 0; i < 8; ++i) addNote(bass, i * (beat*2), beat, 48);
+    Engine::getSong()->setModified();
+    log(tr("Beat created (4 bars)"));
+    return true;
+}
+
+bool AssistantPanel::tryHelp(const QString& text)
+{
+    if (!text.contains(QRegularExpression("(?i)^(what can you do|help|capabilities|commands)$"))) return false;
+    log(tr("You can ask: make a beat, set tempo, add instrument/effect, quantize, transpose, loop, style (aggressive/jazzy), or 'create sample edm track'."));
+    return true;
+}
+
+bool AssistantPanel::tryRemoveTrack(const QString& text)
+{
+    static const QRegularExpression re("(?i)^(remove|delete)\\s+the\\s+(?<name>[A-Za-z0-9_ -]+)$");
+    auto m = re.match(text.trimmed());
+    if (!m.hasMatch()) return false;
+    const auto name = m.captured("name").trimmed();
+    if (removeInstrumentTrackByName(name)) { log(tr("Removed track '%1'").arg(name)); return true; }
+    log(tr("Track '%1' not found").arg(name));
+    return true; // handled intent
+}
+
+bool AssistantPanel::removeInstrumentTrackByName(const QString& name)
+{
+    auto song = Engine::getSong();
+    if (!song) return false;
+    for (auto* t : song->tracks()) {
+        if (t->type() == Track::Type::Instrument && t->name().compare(name, Qt::CaseInsensitive) == 0) {
+            song->removeTrack(t);
+            song->setModified();
+            return true;
+        }
+    }
+    return false;
+}
+
+bool AssistantPanel::tryIntensifyKicker(const QString& text)
+{
+    if (!text.contains(QRegularExpression("(?i)(make|turn).*kicker.*(more intense|harder|punchy)"))) return false;
+    auto* it = findInstrumentTrackByName("Kick");
+    if (!it) it = findInstrumentTrackByName("Kicker");
+    if (!it) return false;
+    // Try to access Kicker parameters via Instrument API if available
+    if (auto* inst = it->instrument()) {
+        // Best-effort: adjust gain if exposed
+        if (auto* vol = it->volumeModel()) {
+            vol->setValue(std::min(vol->maxValue(), vol->value() + 3.0f));
+        }
+    }
+    addEffectToInstrumentTrack(it, "compressor");
+    log(tr("Intensified Kicker (gain + compressor)"));
+    Engine::getSong()->setModified();
+    return true;
+}
+
+lmms::InstrumentTrack* AssistantPanel::getOrCreateInstrument(const QString& name, const QString& pluginFallback)
+{
+    if (auto* it = findInstrumentTrackByName(name)) return it;
+    return addInstrumentTrack(pluginFallback, name);
+}
+
+void AssistantPanel::addNote(lmms::InstrumentTrack* it, int start, int len, int key)
+{
+    if (!it) return;
+    auto* mc = ensureMidiClip(it, 0, TimePos::ticksPerBar()*4);
+    Note n(TimePos(len), TimePos(start), key);
+    mc->addNote(n, false);
+    mc->rearrangeAllNotes();
+}
 AssistantPanel::AssistantPanel(QWidget* parent)
     : SideBarWidget(tr("Assistant"), embed::getIconPixmap("help"), parent)
+    , m_actions(new AssistantActions())
 {
     auto root = new QWidget(this);
     auto layout = new QVBoxLayout(root);
@@ -95,13 +181,13 @@ AssistantPanel::AssistantPanel(QWidget* parent)
         m_logList->addItem(tr("Thinking with GPT-5…"));
         m_logList->scrollToBottom();
     });
+    // Reduce log spam: show only when total increases or every ~512 bytes
     connect(m_modelClient, &ModelClient::requestProgress, this, [this](qint64 rec, qint64 tot){
-        if (tot > 0) {
-            m_logList->addItem(tr("Received %1/%2 bytes").arg(rec).arg(tot));
-        } else {
-            m_logList->addItem(tr("Received %1 bytes").arg(rec));
-        }
-        m_logList->scrollToBottom();
+        static qint64 lastShown = 0;
+        if (rec - lastShown < 512 && rec != tot) return;
+        lastShown = rec;
+        if (tot > 0) log(tr("Received %1/%2 bytes").arg(rec).arg(tot));
+        else log(tr("Received %1 bytes").arg(rec));
     });
     connect(m_modelClient, &ModelClient::requestFinished, this, [this]() {
         m_logList->addItem(tr("Model response finished"));
@@ -113,9 +199,18 @@ void AssistantPanel::onSubmit()
 {
     const auto text = m_input->text().trimmed();
     if (text.isEmpty()) { return; }
-    if (!maybeInvokeModel(text)) {
+    
+    // ALWAYS use GPT-5 when AI is enabled (like Cursor)
+    if (m_aiToggle && m_aiToggle->isChecked() && m_modelClient) {
+        // Send EVERYTHING to GPT-5, let it figure out what to do
+        const auto prompt = buildPlannerPrompt(text);
+        m_modelClient->complete(prompt);
+        log(tr("🤔 Thinking..."));
+    } else {
+        // Fallback to local command parsing only if AI is disabled
         executeCommand(text);
     }
+    
     // UX: add to history, clear prompt, re-focus like Cursor
     if (m_history.isEmpty() || m_history.back() != text) { m_history.push_back(text); }
     m_historyPos = m_history.size();
@@ -126,43 +221,54 @@ void AssistantPanel::onSubmit()
 void AssistantPanel::executeCommand(const QString& text)
 {
     // Try specific parsers in order. If any succeeds, log and return.
-    if (trySetTempo(text)) { m_logList->addItem(tr("Set tempo: %1").arg(text)); m_logList->scrollToBottom(); return; }
-    if (tryTransposeTrack(text)) { m_logList->addItem(tr("Transposed: %1").arg(text)); m_logList->scrollToBottom(); return; }
-    if (tryAddEffect(text)) { m_logList->addItem(tr("Added effect: %1").arg(text)); m_logList->scrollToBottom(); return; }
-    if (tryQuantize(text)) { m_logList->addItem(tr("Quantized: %1").arg(text)); m_logList->scrollToBottom(); return; }
-    if (tryStyle(text)) { m_logList->addItem(tr("Applied style: %1").arg(text)); m_logList->scrollToBottom(); return; }
-    if (tryLoopRepeat(text)) { m_logList->addItem(tr("Looped/repeated: %1").arg(text)); m_logList->scrollToBottom(); return; }
-    if (tryCreateSampleEdm(text)) { m_logList->addItem(tr("Created sample EDM setup: %1").arg(text)); m_logList->scrollToBottom(); return; }
+    if (trySetTempo(text)) { log(tr("Set tempo: %1").arg(text)); return; }
+    if (tryTransposeTrack(text)) { log(tr("Transposed: %1").arg(text)); return; }
+    if (tryAddEffect(text)) { log(tr("Added effect: %1").arg(text)); return; }
+    if (tryQuantize(text)) { log(tr("Quantized: %1").arg(text)); return; }
+    if (tryStyle(text)) { log(tr("Applied style: %1").arg(text)); return; }
+    if (tryLoopRepeat(text) || tryLoopTimes(text)) { log(tr("Looped/repeated: %1").arg(text)); return; }
+    if (tryMakeBeat(text)) { log(tr("Generated beat")); return; }
+    if (tryRemoveTrack(text)) { return; }
+    if (tryIntensifyKicker(text)) { return; }
+    if (tryHelp(text)) { return; }
+    if (tryCreateSampleEdm(text)) { log(tr("Created sample EDM setup: %1").arg(text)); return; }
 
-    m_logList->addItem(tr("Did not understand: %1").arg(text));
-    m_logList->scrollToBottom();
+    log(tr("Did not understand: %1").arg(text));
 }
 
 bool AssistantPanel::maybeInvokeModel(const QString& text)
 {
+    // This method is now deprecated - we ALWAYS use AI when enabled
+    // Keeping for backward compatibility
     if (!m_aiToggle || !m_aiToggle->isChecked()) return false;
     if (!m_modelClient) return false;
-    // For now, send everything that isn't matched by fast-path keywords
-    const bool looksComplex = !text.contains(QRegularExpression("(?i)^(tempo|transpose|quantize|add|loop|repeat)"));
-    if (!looksComplex) return false;
     const auto prompt = buildPlannerPrompt(text);
     m_modelClient->complete(prompt);
-    // log handled by requestStarted/Progress
     return true;
 }
 
 QString AssistantPanel::buildPlannerPrompt(const QString& userText) const
 {
-    // Provide a short system prompt with available tools summary.
-    QString tools = R"(You are a music production assistant inside LMMS.
-You can do these actions via a planner that emits JSON with a list of steps.
-Each step has: {"action": "set_tempo|add_instrument|add_effect|add_midi_notes|transpose|quantize|loop|route|sidechain", ...}.)";
-    return tools + "\nUser: " + userText;
+    // Comprehensive prompt like Cursor - tell GPT-5 everything it can do
+    QString tools = R"(You are an AI music production assistant integrated directly into LMMS DAW, similar to how Cursor works in VSCode.
+The user will give you natural language commands about making music. You understand music theory, production techniques, and can control all aspects of LMMS.
+
+You must respond with a JSON object: {"plan": {"steps": [ ... ]}}
+Each step is an object with an "action" and arguments. Supported actions:
+- set_tempo {"bpm": number}
+- add_instrument {"plugin": string, "name": string}
+- add_effect {"track": string, "fx": string}
+- add_midi_notes {"track": string, "notes": [{"start": ticks, "len": ticks, "key": midi}]}
+- transpose {"track": string, "semitones": number}
+- quantize {"grid": "1/2|1/4|1/8|1/16|1/32"}
+- loop {"span": "4bars|1m|30s"}
+Keep steps small and deterministic. No prose, JSON only.)";
+    return tools + "\nUser goal: " + userText + "\nContext: Song is empty or minimal; prefer creating a playable 4-8 bar loop with kick, hats, bass, and optionally lead. Use 'Kick', 'Hats', 'Bass' track names.";
 }
 
 void AssistantPanel::handleModelPlan(const QString& responseJson)
 {
-    // Expect an OpenAI responses JSON. Try to extract a JSON object from content.
+    // Parse the JSON response from GPT
     QJsonParseError err{};
     const auto doc = QJsonDocument::fromJson(responseJson.toUtf8(), &err);
     if (err.error != QJsonParseError::NoError) {
@@ -170,52 +276,149 @@ void AssistantPanel::handleModelPlan(const QString& responseJson)
         m_logList->scrollToBottom();
         return;
     }
-    // Heuristic: if it contains {"plan": {"steps": [...]}} then run steps
+    
+    // Parse the new format: {"intent": "...", "actions": [...]}
     QJsonObject root = doc.object();
-    QJsonObject plan = root.value("plan").toObject();
-    QJsonArray steps = plan.value("steps").toArray();
-    if (steps.isEmpty()) {
-        // Some models return {"output_text": "..."} or {"content":[...]}
-        m_logList->addItem(tr("Model responded, but no steps found. Using local fallback."));
-        // Fallback: seed a sample EDM scaffold so user gets immediate output
-        tryCreateSampleEdm(QStringLiteral("sample edm"));
-        m_logList->scrollToBottom();
-        return;
+    QString intent = root.value("intent").toString();
+    QJsonArray actions = root.value("actions").toArray();
+    
+    // Fallback to old format if needed
+    if (actions.isEmpty()) {
+        QJsonObject plan = root.value("plan").toObject();
+        actions = plan.value("steps").toArray();
     }
-    int applied = 0;
+    
+    if (actions.isEmpty()) {
+        log(tr("Model responded with no actions. Using local fallback."));
+        actions = buildFallbackPlan(QString());
+    }
+    
+    // Log the intent if present
+    if (!intent.isEmpty()) {
+        log(tr("🎯 Intent: %1").arg(intent));
+    }
+    
+    // Execute actions using the new AssistantActions system
+    log(tr("📋 Executing %1 actions...").arg(actions.size()));
+    
+    for (const QJsonValue& val : actions) {
+        QJsonObject actionObj = val.toObject();
+        QString action = actionObj.value("action").toString();
+        QJsonObject params = actionObj.value("params").toObject();
+        
+        // Execute through the new action system
+        auto result = m_actions->execute(action, params);
+        
+        if (result.success) {
+            log(tr("✅ %1").arg(result.message));
+        } else {
+            log(tr("❌ %1").arg(result.message));
+        }
+    }
+    
+    Engine::getSong()->setModified();
+    log(tr("✅ Plan complete!"));
+}
+
+void AssistantPanel::log(const QString& message)
+{
+    m_logList->addItem(message);
+    m_logList->scrollToBottom();
+}
+
+bool AssistantPanel::executeSteps(const QJsonArray& steps)
+{
+    int i = 0;
     for (const auto& v : steps) {
         const auto o = v.toObject();
         const auto action = o.value("action").toString();
+        log(tr("Step %1: %2").arg(++i).arg(action));
         if (action == "set_tempo") {
             const int bpm = o.value("bpm").toInt();
-            if (bpm > 0) { Engine::getSong()->tempoModel().setValue(bpm); applied++; }
+            if (bpm > 0) { Engine::getSong()->tempoModel().setValue(bpm); log(tr("  -> tempo %1").arg(bpm)); }
         } else if (action == "add_instrument") {
             const auto plugin = o.value("plugin").toString();
             const auto name = o.value("name").toString(plugin);
-            addInstrumentTrack(plugin, name);
-            applied++;
+            m_lastCreatedTrack = addInstrumentTrack(plugin, name);
+            log(tr("  -> instrument '%1' using '%2'").arg(name, plugin));
         } else if (action == "add_effect") {
             const auto track = o.value("track").toString();
             const auto fx = o.value("fx").toString();
-            if (auto* it = findInstrumentTrackByName(track)) { addEffectToInstrumentTrack(it, fx); applied++; }
+            if (auto* it = findInstrumentTrackByName(track)) { addEffectToInstrumentTrack(it, fx); log(tr("  -> effect '%1' on '%2'").arg(fx, track)); }
         } else if (action == "transpose") {
             const auto track = o.value("track").toString();
             const int semitones = o.value("semitones").toInt();
             InstrumentTrack* it = track.isEmpty() ? defaultInstrumentTrack() : findInstrumentTrackByName(track);
-            if (it) { transposeInstrumentTrack(it, semitones); applied++; }
+            if (it) { transposeInstrumentTrack(it, semitones); log(tr("  -> transpose '%1' by %2").arg(track).arg(semitones)); }
         } else if (action == "quantize") {
             const auto grid = o.value("grid").toString("1/16");
             tryQuantize(QStringLiteral("quantize %1").arg(grid));
-            applied++;
+            log(tr("  -> quantize %1").arg(grid));
         } else if (action == "loop") {
             const auto span = o.value("span").toString("4bars");
             tryLoopRepeat(QStringLiteral("loop %1 across song").arg(span));
-            applied++;
+            log(tr("  -> loop %1").arg(span));
+        } else if (action == "add_midi_notes") {
+            const auto trackName = o.value("track").toString().trimmed();
+            InstrumentTrack* it = nullptr;
+            if (!trackName.isEmpty()) {
+                it = findInstrumentTrackByName(trackName);
+                if (!it && m_lastCreatedTrack) {
+                    it = m_lastCreatedTrack; // fallback to most recent
+                    log(tr("  -> fallback to last created track '%1'").arg(it->name()));
+                }
+            } else {
+                it = m_lastCreatedTrack ? m_lastCreatedTrack : defaultInstrumentTrack();
+            }
+            if (!it) { log(tr("  !! track not found")); continue; }
+            auto* mc = ensureMidiClip(it, 0, TimePos::ticksPerBar()*4);
+            for (const auto& nv : o.value("notes").toArray()) {
+                auto no = nv.toObject();
+                Note n(TimePos(no.value("len").toInt()), TimePos(no.value("start").toInt()), no.value("key").toInt());
+                mc->addNote(n, false);
+            }
+            mc->rearrangeAllNotes();
+            log(tr("  -> added %1 notes to %2").arg(o.value("notes").toArray().size()).arg(trackName));
         }
     }
-    Engine::getSong()->setModified();
-    m_logList->addItem(tr("Applied %1 model steps").arg(applied));
-    m_logList->scrollToBottom();
+    return true;
+}
+
+QJsonArray AssistantPanel::buildFallbackPlan(const QString&) const
+{
+    // Simple 128 BPM EDM seed with notes for 4 bars
+    const int bar = TimePos::ticksPerBar();
+    const int beat = bar / 4;
+
+    // Kick: 4-on-the-floor across 4 bars
+    QJsonArray notesKick;
+    for (int i = 0; i < 16; ++i) {
+        notesKick.append(QJsonObject{{"start", i * beat}, {"len", beat/2}, {"key", 36}});
+    }
+
+    // Hats: off-beat 8ths across 4 bars
+    QJsonArray notesHats;
+    for (int i = 0; i < 16; ++i) {
+        notesHats.append(QJsonObject{{"start", i * beat + beat/2}, {"len", beat/4}, {"key", 72}});
+    }
+
+    // Bass: simple 1/2-beat pulses on root
+    QJsonArray notesBass;
+    for (int i = 0; i < 8; ++i) {
+        notesBass.append(QJsonObject{{"start", i * (beat*2)}, {"len", beat}, {"key", 48}});
+    }
+
+    QJsonArray steps;
+    steps.append(QJsonObject{{"action","set_tempo"},{"bpm",128}});
+    steps.append(QJsonObject{{"action","add_instrument"},{"plugin","kicker"},{"name","Kick"}});
+    steps.append(QJsonObject{{"action","add_midi_notes"},{"track","Kick"},{"notes",notesKick}});
+    steps.append(QJsonObject{{"action","add_instrument"},{"plugin","tripleoscillator"},{"name","Hats"}});
+    steps.append(QJsonObject{{"action","add_midi_notes"},{"track","Hats"},{"notes",notesHats}});
+    steps.append(QJsonObject{{"action","add_instrument"},{"plugin","tripleoscillator"},{"name","Bass"}});
+    steps.append(QJsonObject{{"action","add_midi_notes"},{"track","Bass"},{"notes",notesBass}});
+    // Optional: loop the first clip to extend arrangement
+    steps.append(QJsonObject{{"action","loop"},{"span","16bars"}});
+    return steps;
 }
 
 bool AssistantPanel::eventFilter(QObject* obj, QEvent* event)
@@ -524,6 +727,32 @@ bool AssistantPanel::tryLoopRepeat(const QString& text)
     const bool ok = duplicateClipAcrossTicks(it, srcClip, untilTicks);
     if (ok) { song->updateLength(); song->setModified(); }
     return ok;
+}
+
+// e.g., "loop the beat 3 times", "repeat this 8 times"
+bool AssistantPanel::tryLoopTimes(const QString& text)
+{
+    static const QRegularExpression re("(?i)\\b(loop|repeat)\\s+(the\\s+beat\\s+)?(?<n>\\d+)\\s+(x|times)\\b");
+    auto m = re.match(text);
+    if (!m.hasMatch()) return false;
+    const int times = m.captured("n").toInt();
+    auto* it = defaultInstrumentTrack();
+    if (!it) return false;
+    auto* src = earliestNonEmptyClip(it);
+    if (!src) return false;
+    const int clipLen = static_cast<int>(src->length());
+    int pos = static_cast<int>(src->startPosition()) + clipLen;
+    it->addJournalCheckPoint();
+    for (int i = 1; i < times; ++i) {
+        auto* clone = src->clone();
+        clone->movePosition(pos);
+        it->addClip(clone);
+        pos += clipLen;
+    }
+    Engine::getSong()->updateLength();
+    Engine::getSong()->setModified();
+    log(tr("  -> looped %1 times").arg(times));
+    return true;
 }
 
 lmms::Clip* AssistantPanel::earliestNonEmptyClip(lmms::Track* track)
