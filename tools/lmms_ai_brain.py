@@ -27,8 +27,44 @@ except ImportError:
 
 # Import our controllers
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lmms_actions import LMMSActions, Note, Pattern, EditMode, QuantizeMode
-from lmms_complete_controller import TrackType, WaveForm, FilterType
+from lmms_complete_controller import LMMSCompleteController, TrackType, WaveForm, FilterType
+# Keep Note class for compatibility
+try:
+    from lmms_actions import Note
+except ImportError:
+    from dataclasses import dataclass
+    @dataclass
+    class Note:
+        pitch: int
+        position: int
+        length: int
+        velocity: int = 100
+        panning: int = 0
+
+# Import note editor for modifying existing notes
+try:
+    from lmms_note_editor import NoteEditor, integrate_with_controller
+    HAS_NOTE_EDITOR = True
+    # Integrate note editing capabilities into controller
+    integrate_with_controller(LMMSCompleteController)
+except ImportError:
+    HAS_NOTE_EDITOR = False
+
+# Import creative pattern engine for unique beats
+try:
+    from creative_pattern_engine import CreativePatternEngine, PatternAlgorithm
+    HAS_CREATIVE_ENGINE = True
+except ImportError:
+    HAS_CREATIVE_ENGINE = False
+    print("Creative Pattern Engine not available, using standard patterns")
+
+# Import musical intelligence for actually good-sounding music
+try:
+    from musical_intelligence import MusicalIntelligence, GrooveTemplate, HarmonicEngine, MixingEngine
+    HAS_MUSICAL_INTELLIGENCE = True
+except ImportError:
+    HAS_MUSICAL_INTELLIGENCE = False
+    print("Musical Intelligence not available, using basic patterns")
 
 
 @dataclass
@@ -60,8 +96,306 @@ class ProductionPlan:
     arrangement: Dict[str, Any]
 
 
+class MusicTheoryEngine:
+    """Advanced music theory engine for intelligent composition"""
+    
+    # Circle of fifths for key relationships
+    CIRCLE_OF_FIFTHS = [
+        'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'G#', 'D#', 'A#', 'F'
+    ]
+    
+    # Scale degrees and chord progressions
+    SCALE_PATTERNS = {
+        'major': [0, 2, 4, 5, 7, 9, 11],
+        'minor': [0, 2, 3, 5, 7, 8, 10],
+        'dorian': [0, 2, 3, 5, 7, 9, 10],
+        'phrygian': [0, 1, 3, 5, 7, 8, 10],
+        'lydian': [0, 2, 4, 6, 7, 9, 11],
+        'mixolydian': [0, 2, 4, 5, 7, 9, 10],
+        'aeolian': [0, 2, 3, 5, 7, 8, 10],
+        'locrian': [0, 1, 3, 5, 6, 8, 10],
+        'harmonic_minor': [0, 2, 3, 5, 7, 8, 11],
+        'melodic_minor': [0, 2, 3, 5, 7, 9, 11],
+        'pentatonic_major': [0, 2, 4, 7, 9],
+        'pentatonic_minor': [0, 3, 5, 7, 10],
+        'blues': [0, 3, 5, 6, 7, 10],
+        'chromatic': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    }
+    
+    # Common chord progressions by genre
+    CHORD_PROGRESSIONS = {
+        'house': [
+            ['I', 'V', 'vi', 'IV'],  # Classic pop progression
+            ['vi', 'IV', 'I', 'V'],   # Alternative pop
+            ['I', 'I', 'I', 'I'],     # Minimal house
+            ['i', 'VI', 'III', 'VII'] # Deep house
+        ],
+        'techno': [
+            ['i', 'i', 'i', 'i'],     # Minimal techno
+            ['i', 'iv', 'i', 'v'],    # Dark techno
+            ['i', 'VI', 'i', 'VII']   # Detroit techno
+        ],
+        'trance': [
+            ['I', 'V', 'vi', 'IV'],   # Uplifting trance
+            ['vi', 'IV', 'I', 'V'],   # Progressive trance
+            ['i', 'VII', 'VI', 'VII'] # Dark trance
+        ],
+        'dnb': [
+            ['i', 'i', 'i', 'i'],     # Minimal dnb
+            ['i', 'III', 'VI', 'VII'], # Liquid dnb
+            ['i', 'iv', 'VI', 'v']    # Dark dnb
+        ],
+        'dubstep': [
+            ['i', 'i', 'i', 'i'],     # Minimal dubstep
+            ['i', 'VI', 'III', 'VII'] # Melodic dubstep
+        ]
+    }
+    
+    # Rhythm patterns and groove templates
+    RHYTHM_PATTERNS = {
+        'four_on_floor': [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+        'breakbeat': [1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+        'garage': [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+        'trap': [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+        'reggaeton': [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0],
+        'afrobeat': [1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0],
+        'syncopated': [1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0]
+    }
+    
+    @staticmethod
+    def get_scale_notes(root_note: int, scale_type: str = 'major') -> List[int]:
+        """Get MIDI notes for a scale starting from root note"""
+        pattern = MusicTheoryEngine.SCALE_PATTERNS.get(scale_type, [0, 2, 4, 5, 7, 9, 11])
+        return [(root_note + interval) % 128 for interval in pattern]
+    
+    @staticmethod
+    def get_chord_notes(root_note: int, chord_type: str = 'major') -> List[int]:
+        """Get notes for a chord"""
+        chord_intervals = {
+            'major': [0, 4, 7],
+            'minor': [0, 3, 7],
+            'diminished': [0, 3, 6],
+            'augmented': [0, 4, 8],
+            'major7': [0, 4, 7, 11],
+            'minor7': [0, 3, 7, 10],
+            'dom7': [0, 4, 7, 10],
+            'sus2': [0, 2, 7],
+            'sus4': [0, 5, 7],
+            'add9': [0, 4, 7, 14],
+            'minor9': [0, 3, 7, 10, 14]
+        }
+        
+        intervals = chord_intervals.get(chord_type, [0, 4, 7])
+        return [(root_note + interval) % 128 for interval in intervals]
+    
+    @staticmethod
+    def suggest_next_chord(current_chord: str, genre: str = 'house') -> List[str]:
+        """Suggest musically coherent next chords"""
+        # Simplified chord transition matrix
+        transitions = {
+            'I': ['IV', 'V', 'vi', 'iii', 'ii'],
+            'ii': ['V', 'vii°', 'IV'],
+            'iii': ['vi', 'IV', 'ii'],
+            'IV': ['V', 'I', 'ii', 'vi'],
+            'V': ['I', 'vi', 'IV'],
+            'vi': ['ii', 'IV', 'V', 'I'],
+            'vii°': ['I', 'iii']
+        }
+        
+        return transitions.get(current_chord, ['I', 'IV', 'V'])
+    
+    @staticmethod
+    def generate_groove_pattern(style: str, length: int = 16) -> List[int]:
+        """Generate a groove pattern for drums"""
+        base_pattern = MusicTheoryEngine.RHYTHM_PATTERNS.get(
+            style, 
+            [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]
+        )
+        
+        # Extend or truncate to match requested length
+        if length > len(base_pattern):
+            repeats = (length // len(base_pattern)) + 1
+            pattern = base_pattern * repeats
+            return pattern[:length]
+        else:
+            return base_pattern[:length]
+    
+    @staticmethod
+    def calculate_tension(notes: List[int]) -> float:
+        """Calculate harmonic tension of a note set (0-1)"""
+        if len(notes) < 2:
+            return 0.0
+        
+        # Calculate dissonance based on interval relationships
+        tension = 0.0
+        dissonant_intervals = [1, 2, 6, 10, 11]  # Minor 2nd, Major 2nd, Tritone, etc.
+        
+        for i, note1 in enumerate(notes):
+            for note2 in notes[i+1:]:
+                interval = abs(note1 - note2) % 12
+                if interval in dissonant_intervals:
+                    tension += 0.2
+        
+        return min(1.0, tension)
+
+
 class MusicKnowledgeBase:
-    """Musical knowledge for parameter mapping"""
+    """Musical knowledge for parameter mapping and production decisions"""
+    
+    def __init__(self):
+        self.theory = MusicTheoryEngine()
+    
+    # Expanded genre characteristics with production details
+    GENRE_CHARACTERISTICS = {
+        'techno': {
+            'tempo_range': (120, 140),
+            'common_elements': ['kick', 'bass', 'hats', 'clap'],
+            'kick_style': 'punchy',
+            'bass_style': 'rolling',
+            'effects': ['distortion', 'delay', 'reverb'],
+            'energy': 0.8,
+            'complexity': 0.6,
+            'sidechain': True,
+            'swing': 0.0,
+            'compression': 'heavy',
+            'eq_character': 'dark',
+            'stereo_width': 'moderate'
+        },
+        'house': {
+            'tempo_range': (120, 130),
+            'common_elements': ['kick', 'bass', 'hats', 'clap', 'chords'],
+            'kick_style': 'deep',
+            'bass_style': 'groovy',
+            'effects': ['compression', 'eq', 'reverb'],
+            'energy': 0.7,
+            'complexity': 0.5,
+            'sidechain': True,
+            'swing': 0.1,
+            'compression': 'moderate',
+            'eq_character': 'warm',
+            'stereo_width': 'wide'
+        },
+        'dnb': {
+            'tempo_range': (160, 180),
+            'common_elements': ['kick', 'snare', 'bass', 'reese'],
+            'kick_style': 'punchy',
+            'bass_style': 'sub',
+            'effects': ['distortion', 'eq', 'compression'],
+            'energy': 0.9,
+            'complexity': 0.8,
+            'sidechain': False,
+            'swing': 0.0,
+            'compression': 'heavy',
+            'eq_character': 'bright',
+            'stereo_width': 'wide'
+        },
+        'dubstep': {
+            'tempo_range': (138, 142),
+            'common_elements': ['kick', 'snare', 'bass', 'sub'],
+            'kick_style': 'deep',
+            'bass_style': 'wobble',
+            'effects': ['distortion', 'filter', 'delay'],
+            'energy': 0.7,
+            'complexity': 0.6,
+            'sidechain': True,
+            'swing': 0.0,
+            'compression': 'moderate',
+            'eq_character': 'dark',
+            'stereo_width': 'narrow'
+        },
+        'trance': {
+            'tempo_range': (130, 140),
+            'common_elements': ['kick', 'bass', 'lead', 'pad', 'arp'],
+            'kick_style': 'punchy',
+            'bass_style': 'driving',
+            'effects': ['reverb', 'delay', 'filter'],
+            'energy': 0.8,
+            'complexity': 0.7,
+            'sidechain': True,
+            'swing': 0.0,
+            'compression': 'moderate',
+            'eq_character': 'bright',
+            'stereo_width': 'very_wide'
+        },
+        'ambient': {
+            'tempo_range': (60, 100),
+            'common_elements': ['pad', 'texture', 'lead'],
+            'effects': ['reverb', 'delay', 'chorus'],
+            'energy': 0.2,
+            'complexity': 0.4,
+            'sidechain': False,
+            'swing': 0.0,
+            'compression': 'light',
+            'eq_character': 'airy',
+            'stereo_width': 'very_wide'
+        },
+        'trap': {
+            'tempo_range': (130, 150),
+            'common_elements': ['808', 'hihat', 'snare'],
+            'kick_style': '808',
+            'effects': ['distortion', 'compression'],
+            'energy': 0.7,
+            'complexity': 0.6,
+            'sidechain': False,
+            'swing': 0.0,
+            'compression': 'heavy',
+            'eq_character': 'dark',
+            'stereo_width': 'moderate'
+        },
+        'hardstyle': {
+            'tempo_range': (145, 160),
+            'common_elements': ['kick', 'bass', 'lead', 'screech'],
+            'kick_style': 'distorted',
+            'bass_style': 'hard',
+            'effects': ['distortion', 'compression', 'eq'],
+            'energy': 1.0,
+            'complexity': 0.5,
+            'sidechain': False,
+            'swing': 0.0,
+            'compression': 'extreme',
+            'eq_character': 'harsh',
+            'stereo_width': 'moderate'
+        }
+    }
+    
+    # Production-specific knowledge
+    MIX_TEMPLATES = {
+        'bright': {'high_freq_boost': 3, 'low_freq_cut': -2, 'presence': 2},
+        'warm': {'high_freq_cut': -2, 'low_mid_boost': 2, 'saturation': 0.3},
+        'dark': {'high_freq_cut': -4, 'low_freq_boost': 2, 'reverb': 0.4},
+        'airy': {'high_freq_boost': 4, 'air_band_boost': 3, 'reverb': 0.5},
+        'harsh': {'high_mid_boost': 4, 'distortion': 0.6, 'compression': 0.8}
+    }
+    
+    SIDECHAIN_SETTINGS = {
+        'subtle': {'ratio': 2, 'threshold': -10, 'attack': 10, 'release': 100},
+        'moderate': {'ratio': 4, 'threshold': -15, 'attack': 5, 'release': 80},
+        'heavy': {'ratio': 8, 'threshold': -20, 'attack': 1, 'release': 60},
+        'extreme': {'ratio': 20, 'threshold': -25, 'attack': 0.1, 'release': 40}
+    }
+    
+    MASTERING_CHAIN = {
+        'edm': [
+            {'type': 'eq', 'preset': 'gentle_smile'},
+            {'type': 'compressor', 'preset': 'glue'},
+            {'type': 'saturator', 'amount': 0.2},
+            {'type': 'stereo_enhancer', 'width': 1.2},
+            {'type': 'limiter', 'ceiling': -0.3}
+        ],
+        'underground': [
+            {'type': 'eq', 'preset': 'analog_warmth'},
+            {'type': 'compressor', 'preset': 'vintage'},
+            {'type': 'tape_saturation', 'amount': 0.4},
+            {'type': 'limiter', 'ceiling': -1.0}
+        ],
+        'commercial': [
+            {'type': 'eq', 'preset': 'radio_ready'},
+            {'type': 'multiband_comp', 'preset': 'transparent'},
+            {'type': 'exciter', 'amount': 0.1},
+            {'type': 'stereo_enhancer', 'width': 1.3},
+            {'type': 'limiter', 'ceiling': -0.1}
+        ]
+    }
     
     GENRE_CHARACTERISTICS = {
         "techno": {
@@ -158,8 +492,11 @@ class MusicKnowledgeBase:
     }
     
     @staticmethod
-    def get_instrument_for_element(element: str, characteristics: List[str]) -> Dict[str, Any]:
+    def get_instrument_for_element(element: str, characteristics: Optional[List[str]] = None) -> Dict[str, Any]:
         """Choose instrument and settings based on element type and characteristics"""
+        
+        if characteristics is None:
+            characteristics = []
         
         element_lower = element.lower()
         
@@ -272,6 +609,7 @@ class LMMSAIBrain:
     """
     The intelligent brain that interprets musical requests and generates production plans
     Uses GPT models to understand intent and make musical decisions
+    Now with advanced creative pattern generation for unique beats every time
     """
     
     def __init__(self, api_key: Optional[str] = None):
@@ -283,39 +621,74 @@ class LMMSAIBrain:
             self.api_key = None
         
         self.knowledge = MusicKnowledgeBase()
-        self.controller = LMMSActions()
+        # Use complete controller for better effect handling
+        self.controller = LMMSCompleteController()
+        
+        # Initialize creative pattern engine
+        if HAS_CREATIVE_ENGINE:
+            self.creative_engine = CreativePatternEngine()
+            self.use_creative_patterns = False  # Disabled by default in favor of musical intelligence
+        else:
+            self.creative_engine = None
+            self.use_creative_patterns = False
+        
+        # Initialize musical intelligence for good-sounding tracks
+        if HAS_MUSICAL_INTELLIGENCE:
+            self.musical_intelligence = MusicalIntelligence()
+            self.use_musical_intelligence = True
+            print("Musical Intelligence activated - creating professional-sounding tracks!")
+        else:
+            self.musical_intelligence = None
+            self.use_musical_intelligence = False
     
     def interpret_request(self, request: str) -> MusicalIntent:
         """
-        Use GPT to interpret the musical intent from natural language
+        Use GPT to interpret the musical intent from natural language with enhanced understanding
         """
         if not self.api_key:
-            # Fallback to rule-based interpretation
-            return self._rule_based_interpretation(request)
+            # Fallback to enhanced rule-based interpretation
+            return self._enhanced_rule_based_interpretation(request)
         
         prompt = f"""
-        Analyze this music production request and extract the musical intent.
+        Analyze this music production request with deep understanding of musical context and user intent.
         Request: "{request}"
         
-        Return a JSON object with:
-        - genre: detected genre (techno, house, dnb, trap, ambient, etc.)
-        - mood: overall mood (aggressive, dark, uplifting, minimal, chaotic, etc.)
-        - energy_level: 0.0 to 1.0
-        - complexity: 0.0 to 1.0
-        - tempo: BPM if specified or implied by genre
-        - key: musical key if specified
-        - time_signature: [numerator, denominator] if specified
-        - elements: list of musical elements needed (kick, bass, hats, lead, pad, etc.)
-        - effects_intensity: 0.0 to 1.0 based on descriptions like "heavy", "distorted"
-        - characteristics: list of descriptive words (heavy, distorted, minimal, rolling, etc.)
-        - duration_bars: number of bars requested
-        - specific_requirements: any specific technical requirements
+        Instructions:
+        1. Understand implicit musical desires even if not directly stated
+        2. Consider emotional and atmospheric qualities beyond technical specs
+        3. Recognize production style references (e.g., "like Daft Punk", "old school", "modern")
+        4. Infer arrangement complexity from context clues
+        5. Detect layering preferences (sparse vs dense)
+        6. Understand dynamic range preferences
+        7. Pick up on subtle production cues (warmth, crispness, punchiness)
         
-        Be intelligent about inferring from context. For example:
-        - "heavy" implies high effects_intensity and energy_level
-        - "minimal" implies low complexity
-        - "fast" implies higher tempo
-        - "distorted" should be in characteristics and implies high effects_intensity
+        Return a JSON object with:
+        - genre: detected genre (techno, house, dnb, trap, ambient, dubstep, trance, hardstyle, etc.)
+        - sub_genre: specific sub-genre if applicable (deep house, liquid dnb, etc.)
+        - mood: overall mood (aggressive, dark, uplifting, minimal, chaotic, melancholic, euphoric, etc.)
+        - energy_level: 0.0 to 1.0 (consider build-ups and drops)
+        - complexity: 0.0 to 1.0 (arrangement complexity)
+        - tempo: BPM if specified or smartly inferred from genre/sub-genre
+        - key: musical key if specified or suggested for the mood
+        - time_signature: [numerator, denominator] if specified
+        - elements: list of musical elements needed with priority levels
+        - effects_intensity: 0.0 to 1.0 based on production style
+        - characteristics: list of descriptive words about sound character
+        - duration_bars: number of bars (consider loop vs full track)
+        - specific_requirements: technical requirements and user preferences
+        - production_style: vintage, modern, lo-fi, hi-fi, raw, polished, etc.
+        - dynamic_profile: constant, building, dropping, varying
+        - reference_artists: list of artists if mentioned or implied
+        - mix_preferences: bright, dark, wide, narrow, dry, wet
+        
+        Context understanding examples:
+        - "make it bang" → high energy, punchy kick, compressed mix
+        - "smooth and groovy" → rolling bassline, moderate energy, good flow
+        - "warehouse vibe" → reverb, raw sound, underground feel
+        - "radio ready" → polished production, balanced mix, accessible
+        - "experimental" → high complexity, unusual sounds, creative effects
+        - "old school" → vintage character, classic patterns, authentic sounds
+        - "futuristic" → modern synthesis, creative processing, innovative
         """
         
         try:
@@ -331,7 +704,8 @@ class LMMSAIBrain:
             
             intent_data = json.loads(response.choices[0].message.content)
             
-            return MusicalIntent(
+            # Enhanced intent with additional context
+            intent = MusicalIntent(
                 genre=intent_data.get("genre"),
                 mood=intent_data.get("mood"),
                 energy_level=intent_data.get("energy_level", 0.5),
@@ -346,9 +720,205 @@ class LMMSAIBrain:
                 specific_requirements=intent_data.get("specific_requirements", {})
             )
             
+            # Store additional context for smarter decisions
+            intent.sub_genre = intent_data.get("sub_genre")
+            intent.production_style = intent_data.get("production_style", "modern")
+            intent.dynamic_profile = intent_data.get("dynamic_profile", "constant")
+            intent.reference_artists = intent_data.get("reference_artists", [])
+            intent.mix_preferences = intent_data.get("mix_preferences", {})
+            
+            return intent
+            
         except Exception as e:
             print(f"GPT interpretation failed: {e}, falling back to rule-based")
             return self._rule_based_interpretation(request)
+    
+    def _enhanced_rule_based_interpretation(self, request: str) -> MusicalIntent:
+        """Enhanced fallback interpretation with better context understanding"""
+        request_lower = request.lower()
+        
+        intent = MusicalIntent()
+        
+        # Enhanced genre detection with sub-genres
+        genre_patterns = {
+            'techno': ['techno', 'detroit', 'berlin'],
+            'house': ['house', 'deep house', 'tech house', 'progressive house'],
+            'dnb': ['dnb', 'drum and bass', 'drum & bass', 'liquid', 'neurofunk', 'jump up'],
+            'dubstep': ['dubstep', 'brostep', 'riddim', 'deep dub'],
+            'trance': ['trance', 'psy', 'psychedelic', 'uplifting trance'],
+            'trap': ['trap', '808', 'hybrid trap'],
+            'ambient': ['ambient', 'atmospheric', 'chill', 'downtempo'],
+            'hardstyle': ['hardstyle', 'hardcore', 'gabber', 'hard dance']
+        }
+        
+        for genre, patterns in genre_patterns.items():
+            if any(p in request_lower for p in patterns):
+                intent.genre = genre
+                break
+        
+        # Context-aware mood detection
+        mood_indicators = {
+            'aggressive': ['aggressive', 'hard', 'intense', 'fierce', 'brutal'],
+            'dark': ['dark', 'ominous', 'sinister', 'underground', 'deep'],
+            'uplifting': ['uplifting', 'happy', 'euphoric', 'positive', 'bright'],
+            'minimal': ['minimal', 'stripped', 'simple', 'clean'],
+            'chaotic': ['chaotic', 'crazy', 'wild', 'experimental', 'glitchy'],
+            'melancholic': ['sad', 'melancholic', 'emotional', 'nostalgic'],
+            'groovy': ['groovy', 'funky', 'smooth', 'flowing']
+        }
+        
+        for mood, indicators in mood_indicators.items():
+            if any(ind in request_lower for ind in indicators):
+                intent.mood = mood
+                break
+        
+        # Intelligent characteristic extraction
+        intent.characteristics = []
+        characteristic_patterns = {
+            'heavy': ['heavy', 'thick', 'fat', 'massive'],
+            'distorted': ['distorted', 'distortion', 'dirty', 'gritty'],
+            'clean': ['clean', 'clear', 'pristine', 'pure'],
+            'warm': ['warm', 'analog', 'vintage', 'cozy'],
+            'cold': ['cold', 'digital', 'metallic', 'icy'],
+            'punchy': ['punchy', 'punch', 'snappy', 'tight'],
+            'rolling': ['rolling', 'flowing', 'continuous', 'smooth'],
+            'glitchy': ['glitch', 'glitchy', 'stutter', 'chopped'],
+            'atmospheric': ['atmospheric', 'spacey', 'ethereal', 'airy']
+        }
+        
+        for char, patterns in characteristic_patterns.items():
+            if any(p in request_lower for p in patterns):
+                intent.characteristics.append(char)
+        
+        # Energy level inference
+        if any(word in request_lower for word in ['high energy', 'energetic', 'pump', 'bang', 'rage']):
+            intent.energy_level = 0.9
+        elif any(word in request_lower for word in ['chill', 'relaxed', 'calm', 'ambient']):
+            intent.energy_level = 0.3
+        elif any(word in request_lower for word in ['moderate', 'medium', 'balanced']):
+            intent.energy_level = 0.5
+        elif 'heavy' in intent.characteristics or 'aggressive' == intent.mood:
+            intent.energy_level = 0.8
+        
+        # Complexity inference
+        if any(word in request_lower for word in ['complex', 'intricate', 'detailed', 'layered']):
+            intent.complexity = 0.8
+        elif any(word in request_lower for word in ['simple', 'minimal', 'basic', 'stripped']):
+            intent.complexity = 0.3
+        elif any(word in request_lower for word in ['experimental', 'creative', 'unique']):
+            intent.complexity = 0.7
+        
+        # Smart tempo inference
+        import re
+        bpm_match = re.search(r'(\d+)\s*bpm', request_lower)
+        if bpm_match:
+            intent.tempo = int(bpm_match.group(1))
+        else:
+            # Infer from genre and energy
+            if intent.genre == 'dnb':
+                intent.tempo = 174 if intent.energy_level > 0.7 else 170
+            elif intent.genre == 'dubstep':
+                intent.tempo = 140
+            elif intent.genre == 'house':
+                if 'deep' in request_lower:
+                    intent.tempo = 122
+                else:
+                    intent.tempo = 128
+            elif intent.genre == 'techno':
+                intent.tempo = 135 if intent.energy_level > 0.7 else 128
+            elif intent.genre == 'trance':
+                intent.tempo = 138
+            elif intent.genre == 'hardstyle':
+                intent.tempo = 150
+            elif 'fast' in request_lower:
+                intent.tempo = 140
+            elif 'slow' in request_lower:
+                intent.tempo = 90
+        
+        # Element detection with context
+        intent.elements = []
+        element_patterns = {
+            'kick': ['kick', 'bd', 'bassdrum', 'bass drum'],
+            'bass': ['bass', 'sub', 'low', 'bassline', '808'],
+            'hats': ['hat', 'hh', 'hihat', 'hi-hat', 'cymbal'],
+            'snare': ['snare', 'sd', 'clap', 'snap'],
+            'lead': ['lead', 'melody', 'main', 'synth'],
+            'pad': ['pad', 'atmosphere', 'ambient', 'texture'],
+            'arp': ['arp', 'arpeggio', 'arpeggiated'],
+            'fx': ['fx', 'effects', 'sweep', 'riser', 'impact'],
+            'perc': ['perc', 'percussion', 'shaker', 'conga', 'bongo'],
+            'vocal': ['vocal', 'vox', 'voice', 'speech']
+        }
+        
+        for element, patterns in element_patterns.items():
+            if any(p in request_lower for p in patterns):
+                intent.elements.append(element)
+        
+        # If no elements specified, use intelligent defaults based on genre
+        if not intent.elements:
+            if intent.genre == 'techno':
+                intent.elements = ['kick', 'bass', 'hats', 'perc']
+            elif intent.genre == 'house':
+                intent.elements = ['kick', 'bass', 'hats', 'clap', 'pad']
+            elif intent.genre == 'dnb':
+                intent.elements = ['kick', 'snare', 'bass', 'hats']
+            elif intent.genre == 'dubstep':
+                intent.elements = ['kick', 'snare', 'bass', 'fx']
+            elif intent.genre == 'ambient':
+                intent.elements = ['pad', 'lead', 'fx']
+            elif intent.genre == 'trap':
+                intent.elements = ['kick', 'snare', 'hats', 'bass']
+            else:
+                intent.elements = ['kick', 'bass', 'hats', 'snare']
+        
+        # Duration detection with context
+        if 'loop' in request_lower or 'bar loop' in request_lower:
+            if '8' in request_lower:
+                intent.duration_bars = 8
+            elif '4' in request_lower:
+                intent.duration_bars = 4
+            elif '16' in request_lower:
+                intent.duration_bars = 16
+            else:
+                intent.duration_bars = 4
+        elif 'full track' in request_lower or 'song' in request_lower:
+            intent.duration_bars = 32
+        elif 'pattern' in request_lower:
+            intent.duration_bars = 4
+        else:
+            intent.duration_bars = 8
+        
+        # Effects intensity based on multiple factors
+        intensity_indicators = {
+            0.9: ['extremely', 'heavily', 'massively', 'insanely'],
+            0.8: ['very', 'heavy', 'intense', 'strong'],
+            0.6: ['moderate', 'medium', 'some'],
+            0.3: ['light', 'subtle', 'gentle', 'soft'],
+            0.1: ['minimal', 'barely', 'slight']
+        }
+        
+        for intensity, indicators in intensity_indicators.items():
+            if any(ind in request_lower for ind in indicators):
+                intent.effects_intensity = intensity
+                break
+        
+        # Additional production hints
+        if 'sidechain' in request_lower:
+            if 'specific_requirements' not in intent.__dict__:
+                intent.specific_requirements = {}
+            intent.specific_requirements['sidechain'] = True
+        
+        if 'stereo' in request_lower or 'wide' in request_lower:
+            if 'specific_requirements' not in intent.__dict__:
+                intent.specific_requirements = {}
+            intent.specific_requirements['stereo_width'] = 'wide'
+        
+        if 'mono' in request_lower or 'centered' in request_lower:
+            if 'specific_requirements' not in intent.__dict__:
+                intent.specific_requirements = {}
+            intent.specific_requirements['stereo_width'] = 'narrow'
+        
+        return intent
     
     def _rule_based_interpretation(self, request: str) -> MusicalIntent:
         """Fallback rule-based interpretation when GPT is not available"""
@@ -498,6 +1068,285 @@ class LMMSAIBrain:
             return self._rule_based_production_plan(intent)
     
     def _rule_based_production_plan(self, intent: MusicalIntent) -> ProductionPlan:
+        """Generate production plan using musical intelligence or rules"""
+        
+        # Use Musical Intelligence if available
+        if self.use_musical_intelligence and self.musical_intelligence:
+            return self._musical_intelligence_plan(intent)
+        
+        # Otherwise use original rule-based approach
+        return self._original_rule_based_plan(intent)
+    
+    def _musical_intelligence_plan(self, intent: MusicalIntent) -> ProductionPlan:
+        """Generate plan using Musical Intelligence for professional sound"""
+        
+        # Generate track with musical intelligence
+        track_data = self.musical_intelligence.generate_track(
+            genre=intent.genre or 'house',
+            mood=intent.mood,
+            bars=intent.duration_bars or 8,
+            tempo=intent.tempo
+        )
+        
+        tracks = []
+        patterns = []
+        effects = []
+        
+        # Set tempo from intelligence
+        tempo = track_data['tempo']
+        
+        # Create drum tracks with proper mixing
+        drums = track_data['tracks']['drums']
+        
+        # Kick track
+        if drums.get('kick'):
+            kick_track = {
+                'name': 'Kick',
+                'element': 'kick',
+                'instrument': 'kicker',
+                'parameters': {
+                    'start': 150, 'end': 35, 'decay': 300,
+                    'dist': 0.3, 'startclick': 0.4, 'gain': 1.0
+                },
+                'volume': 100,
+                'panning': 0,
+                'effects': []
+            }
+            
+            # Add EQ based on mixing intelligence
+            if drums.get('kick_eq'):
+                eq_settings = drums['kick_eq']
+                kick_track['effects'].append({
+                    'type': 'eq',
+                    'params': {
+                        'hp_active': 1, 'hp_freq': eq_settings.get('hp_freq', 30),
+                        'lp_active': 1, 'lp_freq': eq_settings.get('lp_freq', 8000),
+                        'peak1_active': 1, 'peak1_freq': eq_settings.get('boost_freq', 60),
+                        'peak1_gain': eq_settings.get('boost_gain', 3)
+                    }
+                })
+            
+            # Add compression
+            if drums.get('kick_comp'):
+                comp = drums['kick_comp']
+                kick_track['effects'].append({
+                    'type': 'compressor',
+                    'params': comp
+                })
+            
+            tracks.append(kick_track)
+            patterns.append({
+                'track': 'Kick',
+                'name': 'Kick Pattern',
+                'notes': drums['kick']
+            })
+        
+        # Snare track
+        if drums.get('snare'):
+            snare_track = {
+                'name': 'Snare',
+                'element': 'snare',
+                'instrument': 'kicker',
+                'parameters': {
+                    'start': 400, 'end': 200, 'decay': 150,
+                    'dist': 0.2, 'noise': 0.5, 'gain': 0.9
+                },
+                'volume': 90,
+                'panning': 0,
+                'effects': []
+            }
+            
+            if drums.get('snare_eq'):
+                eq_settings = drums['snare_eq']
+                snare_track['effects'].append({
+                    'type': 'eq',
+                    'params': {
+                        'hp_active': 1, 'hp_freq': eq_settings.get('hp_freq', 150),
+                        'peak1_active': 1, 'peak1_freq': eq_settings.get('boost_freq', 200),
+                        'peak1_gain': eq_settings.get('boost_gain', 2)
+                    }
+                })
+            
+            tracks.append(snare_track)
+            patterns.append({
+                'track': 'Snare',
+                'name': 'Snare Pattern',
+                'notes': drums['snare']
+            })
+        
+        # Hi-hat track
+        if drums.get('hat'):
+            hat_track = {
+                'name': 'HiHat',
+                'element': 'hat',
+                'instrument': 'kicker',
+                'parameters': {
+                    'start': 10000, 'end': 5000, 'decay': 50,
+                    'dist': 0.05, 'noise': 0.9, 'gain': 0.6
+                },
+                'volume': 70,
+                'panning': 10,  # Slight right pan
+                'effects': []
+            }
+            
+            if drums.get('hat_eq'):
+                eq_settings = drums['hat_eq']
+                hat_track['effects'].append({
+                    'type': 'eq',
+                    'params': {
+                        'hp_active': 1, 'hp_freq': eq_settings.get('hp_freq', 500),
+                        'hs_active': 1, 'hs_freq': eq_settings.get('shelf_freq', 10000),
+                        'hs_gain': eq_settings.get('shelf_gain', 2)
+                    }
+                })
+            
+            tracks.append(hat_track)
+            patterns.append({
+                'track': 'HiHat',
+                'name': 'HiHat Pattern',
+                'notes': drums['hat']
+            })
+        
+        # Bass track with sidechain
+        bass_data = track_data['tracks']['bass']
+        if bass_data.get('notes'):
+            bass_track = {
+                'name': 'Bass',
+                'element': 'bass',
+                'instrument': 'tripleoscillator',
+                'parameters': {
+                    'vol0': 100, 'wavetype0': 2,  # Saw wave
+                    'coarse0': -12,  # One octave down
+                    'vol1': 50, 'wavetype1': 3,   # Square wave
+                    'coarse1': -12,
+                    'vol2': 30, 'wavetype2': 0,   # Sine sub
+                    'coarse2': -24
+                },
+                'volume': 85,
+                'panning': 0,
+                'effects': []
+            }
+            
+            # Add bass EQ
+            if bass_data.get('eq'):
+                eq_settings = bass_data['eq']
+                bass_track['effects'].append({
+                    'type': 'eq',
+                    'params': {
+                        'hp_active': 1, 'hp_freq': eq_settings.get('hp_freq', 40),
+                        'lp_active': 1, 'lp_freq': eq_settings.get('lp_freq', 3000),
+                        'peak1_active': 1, 'peak1_freq': eq_settings.get('boost_freq', 100),
+                        'peak1_gain': eq_settings.get('boost_gain', 2)
+                    }
+                })
+            
+            # Add sidechain compression
+            if bass_data.get('sidechain'):
+                sc = bass_data['sidechain']
+                bass_track['effects'].append({
+                    'type': 'compressor',
+                    'params': {
+                        'threshold': sc.get('threshold', -20),
+                        'ratio': sc.get('ratio', 8),
+                        'attack': sc.get('attack', 0.1),
+                        'release': sc.get('release', 100)
+                    }
+                })
+            
+            tracks.append(bass_track)
+            patterns.append({
+                'track': 'Bass',
+                'name': 'Bass Pattern',
+                'notes': bass_data['notes']
+            })
+        
+        # Melodic elements (pads, leads)
+        melodic = track_data['tracks']['melodic']
+        
+        if melodic.get('pad'):
+            pad_track = {
+                'name': 'Pad',
+                'element': 'pad',
+                'instrument': 'tripleoscillator',
+                'parameters': {
+                    'vol0': 60, 'wavetype0': 2,  # Saw
+                    'vol1': 50, 'wavetype1': 2,  # Saw
+                    'finel1': 7,  # Slight detune
+                    'vol2': 40, 'wavetype2': 0,  # Sine
+                    'coarse2': 12  # Octave up
+                },
+                'volume': 60,
+                'panning': 0,
+                'effects': [
+                    {
+                        'type': 'reverbsc',
+                        'params': {'size': 70, 'damping': 50, 'width': 100, 'gain': 100}
+                    },
+                    {
+                        'type': 'chorus',
+                        'params': {'rate': 0.3, 'depth': 0.2, 'mix': 0.3}
+                    }
+                ]
+            }
+            
+            tracks.append(pad_track)
+            patterns.append({
+                'track': 'Pad',
+                'name': 'Pad Pattern',
+                'notes': melodic['pad']['notes']
+            })
+        
+        # Master effects
+        mix = track_data['mixing']
+        
+        # Master compression
+        if mix.get('master_compression'):
+            comp = mix['master_compression']
+            effects.append({
+                'type': 'compressor',
+                'target': 'master',
+                'params': comp
+            })
+        
+        # Master EQ
+        if mix.get('master_eq'):
+            eq = mix['master_eq']
+            effects.append({
+                'type': 'eq',
+                'target': 'master',
+                'params': {
+                    'hp_active': 1, 'hp_freq': eq.get('hp_freq', 20),
+                    'lp_active': 1, 'lp_freq': eq.get('lp_freq', 20000)
+                }
+            })
+        
+        # Limiter on master
+        effects.append({
+            'type': 'limiter',
+            'target': 'master',
+            'params': {'ceiling': -0.3, 'release': 10}
+        })
+        
+        mix_settings = {
+            'tempo': tempo,
+            'master_volume': 100
+        }
+        
+        arrangement = {
+            'loop_length': intent.duration_bars * 48,
+            'sections': [{'name': 'main', 'start': 0, 'length': intent.duration_bars * 48}]
+        }
+        
+        return ProductionPlan(
+            tracks=tracks,
+            patterns=patterns,
+            effects=effects,
+            automation=[],
+            mix_settings=mix_settings,
+            arrangement=arrangement
+        )
+    
+    def _original_rule_based_plan(self, intent: MusicalIntent) -> ProductionPlan:
         """Generate production plan using rules and knowledge base"""
         
         tracks = []
@@ -521,9 +1370,10 @@ class LMMSAIBrain:
             
             # Determine track parameters based on intent
             volume = 100
-            if "minimal" in intent.characteristics:
+            characteristics = intent.characteristics or []
+            if "minimal" in characteristics:
                 volume = 60 if element != "kick" else 80
-            elif "heavy" in intent.characteristics:
+            elif "heavy" in characteristics:
                 volume = 100 if element in ["kick", "bass"] else 85
             
             track_effects = []
@@ -531,7 +1381,7 @@ class LMMSAIBrain:
             # Add effects based on intensity and characteristics
             if intent.effects_intensity > 0.6:
                 if element in ["kick", "bass"]:
-                    if "distorted" in intent.characteristics or intent.effects_intensity > 0.7:
+                    if "distorted" in characteristics or intent.effects_intensity > 0.7:
                         effect_level = "heavy" if intent.effects_intensity > 0.8 else "moderate"
                         distortion_params = self.knowledge.EFFECT_INTENSITY_MAPPINGS[effect_level]["distortion"]
                         track_effects.append({
@@ -563,13 +1413,20 @@ class LMMSAIBrain:
                 "effects": track_effects
             })
             
-            # Generate pattern based on element type and intent
-            pattern_notes = self._generate_pattern_notes(
-                element, 
-                intent.duration_bars * 48,  # 48 ticks per bar
-                intent.complexity,
-                intent.energy_level
-            )
+            # Use creative engine for truly unique patterns
+            if self.use_creative_patterns and element in ['kick', 'bass', 'hats', 'snare']:
+                pattern_notes = self._generate_creative_pattern(
+                    element,
+                    intent.duration_bars * 48,
+                    intent
+                )
+            else:
+                # Fallback to intelligent pattern generation
+                pattern_notes = self._generate_intelligent_pattern(
+                    element, 
+                    intent.duration_bars * 48,  # 48 ticks per bar
+                    intent
+                )
             
             patterns.append({
                 "track": element.capitalize(),
@@ -610,9 +1467,415 @@ class LMMSAIBrain:
             arrangement=arrangement
         )
     
+    def _generate_intelligent_pattern(self, element: str, length: int, 
+                                     intent: MusicalIntent) -> List[Dict]:
+        """Generate musically intelligent patterns using music theory"""
+        notes = []
+        
+        # Get music theory context
+        root_note = 36  # C2 default
+        if intent.key:
+            # Parse key and get root note
+            key_map = {'C': 36, 'D': 38, 'E': 40, 'F': 41, 'G': 43, 'A': 45, 'B': 47}
+            if intent.key[0] in key_map:
+                root_note = key_map[intent.key[0]]
+                if '#' in intent.key:
+                    root_note += 1
+                elif 'b' in intent.key:
+                    root_note -= 1
+        
+        # Determine scale type
+        scale_type = 'minor' if intent.mood in ['dark', 'aggressive', 'melancholic'] else 'major'
+        if intent.genre in ['techno', 'dnb', 'dubstep']:
+            scale_type = 'minor'  # These genres typically use minor scales
+        
+        scale_notes = MusicTheoryEngine.get_scale_notes(root_note, scale_type)
+        
+        # Generate pattern based on element with musical intelligence
+        if element == 'kick':
+            notes = self._generate_kick_pattern(length, intent)
+        elif element == 'bass':
+            notes = self._generate_bass_pattern(length, intent, scale_notes)
+        elif element in ['hats', 'hat', 'hihat']:
+            notes = self._generate_hihat_pattern(length, intent)
+        elif element == 'snare':
+            notes = self._generate_snare_pattern(length, intent)
+        elif element == 'lead':
+            notes = self._generate_lead_pattern(length, intent, scale_notes)
+        elif element == 'pad':
+            notes = self._generate_pad_pattern(length, intent, scale_notes)
+        elif element == 'arp':
+            notes = self._generate_arp_pattern(length, intent, scale_notes)
+        else:
+            notes = self._generate_generic_pattern(length, intent, scale_notes)
+        
+        return notes
+    
+    def _generate_kick_pattern(self, length: int, intent: MusicalIntent) -> List[Dict]:
+        """Generate intelligent kick patterns"""
+        notes = []
+        complexity = intent.complexity
+        energy = intent.energy_level
+        
+        # Get groove pattern
+        if intent.genre == 'house' or intent.genre == 'techno':
+            pattern = MusicTheoryEngine.generate_groove_pattern('four_on_floor', 16)
+        elif intent.genre == 'dnb':
+            pattern = MusicTheoryEngine.generate_groove_pattern('breakbeat', 16)
+        elif intent.genre == 'trap':
+            pattern = MusicTheoryEngine.generate_groove_pattern('trap', 16)
+        else:
+            pattern = MusicTheoryEngine.generate_groove_pattern('four_on_floor', 16)
+        
+        # Apply pattern
+        for bar in range(length // 48):
+            bar_start = bar * 48
+            for i, hit in enumerate(pattern):
+                if hit:
+                    pos = bar_start + (i * 3)  # 16th note resolution
+                    
+                    # Add variations based on complexity
+                    if complexity > 0.6 and i % 8 == 7 and random.random() < 0.3:
+                        # Add ghost note before main hit
+                        notes.append({
+                            'pitch': 36,
+                            'position': pos - 3,
+                            'length': 3,
+                            'velocity': int(40 + energy * 20)
+                        })
+                    
+                    # Main kick
+                    velocity = int(80 + energy * 40)
+                    if i % 4 == 0:  # Accent downbeats
+                        velocity = min(127, velocity + 10)
+                    
+                    notes.append({
+                        'pitch': 36,
+                        'position': pos,
+                        'length': 12,
+                        'velocity': velocity
+                    })
+        
+        return notes
+    
+    def _generate_bass_pattern(self, length: int, intent: MusicalIntent, 
+                              scale_notes: List[int]) -> List[Dict]:
+        """Generate intelligent basslines using scales and chord progressions"""
+        notes = []
+        complexity = intent.complexity
+        energy = intent.energy_level
+        
+        # Get chord progression for the genre
+        progressions = MusicTheoryEngine.CHORD_PROGRESSIONS.get(
+            intent.genre, 
+            [['i', 'i', 'i', 'i']]
+        )
+        progression = random.choice(progressions)
+        
+        # Convert progression to root notes
+        chord_roots = []
+        for chord in progression:
+            degree = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii'].index(chord.lower())
+            chord_roots.append(scale_notes[degree % len(scale_notes)])
+        
+        # Generate bassline
+        for bar in range(length // 48):
+            bar_start = bar * 48
+            chord_root = chord_roots[bar % len(chord_roots)]
+            
+            if complexity < 0.4:
+                # Simple root notes
+                notes.append({
+                    'pitch': chord_root,
+                    'position': bar_start,
+                    'length': 36,
+                    'velocity': int(60 + energy * 30)
+                })
+            elif complexity < 0.7:
+                # Rolling bassline with octave jumps
+                for i in range(0, 48, 12):
+                    if i % 24 == 0:
+                        pitch = chord_root
+                    elif i % 24 == 12:
+                        pitch = chord_root + 12 if random.random() < 0.5 else chord_root - 12
+                    else:
+                        pitch = chord_root
+                    
+                    notes.append({
+                        'pitch': pitch,
+                        'position': bar_start + i,
+                        'length': 10,
+                        'velocity': int(50 + energy * 40 + random.randint(-5, 5))
+                    })
+            else:
+                # Complex melodic bassline
+                chord_notes = MusicTheoryEngine.get_chord_notes(chord_root, 'minor7')
+                for i in range(0, 48, 6):
+                    # Use chord tones and passing notes
+                    if i % 12 == 0:
+                        pitch = chord_root
+                    else:
+                        pitch = random.choice(chord_notes)
+                    
+                    # Add slides and variations
+                    length = 5 if random.random() < 0.3 else 10
+                    
+                    notes.append({
+                        'pitch': pitch,
+                        'position': bar_start + i,
+                        'length': length,
+                        'velocity': int(50 + energy * 35 + random.randint(-10, 10))
+                    })
+        
+        return notes
+    
+    def _generate_hihat_pattern(self, length: int, intent: MusicalIntent) -> List[Dict]:
+        """Generate intelligent hi-hat patterns"""
+        notes = []
+        complexity = intent.complexity
+        energy = intent.energy_level
+        
+        # Different patterns based on genre
+        if intent.genre == 'trap':
+            # Trap-style rapid hi-hats with rolls
+            for bar in range(length // 48):
+                bar_start = bar * 48
+                for i in range(0, 48, 3):
+                    if i % 6 == 0 or (complexity > 0.5 and random.random() < 0.4):
+                        velocity = int(40 + energy * 30)
+                        
+                        # Add rolls
+                        if complexity > 0.7 and i % 24 == 18 and random.random() < 0.5:
+                            # Triplet roll
+                            for j in range(3):
+                                notes.append({
+                                    'pitch': 42,
+                                    'position': bar_start + i + j,
+                                    'length': 1,
+                                    'velocity': velocity - (j * 5)
+                                })
+                        else:
+                            notes.append({
+                                'pitch': 42 if random.random() < 0.8 else 46,  # Closed/open
+                                'position': bar_start + i,
+                                'length': 3,
+                                'velocity': velocity + random.randint(-5, 5)
+                            })
+        else:
+            # Standard patterns
+            for bar in range(length // 48):
+                bar_start = bar * 48
+                positions = []
+                
+                if complexity < 0.4:
+                    positions = [12, 36]  # Minimal
+                elif complexity < 0.7:
+                    positions = [12, 24, 36]  # Moderate
+                else:
+                    positions = [6, 12, 18, 24, 30, 36, 42]  # Complex
+                
+                for pos in positions:
+                    notes.append({
+                        'pitch': 42,
+                        'position': bar_start + pos,
+                        'length': 6,
+                        'velocity': int(40 + energy * 25 + random.randint(-5, 10))
+                    })
+        
+        return notes
+    
+    def _generate_snare_pattern(self, length: int, intent: MusicalIntent) -> List[Dict]:
+        """Generate intelligent snare patterns"""
+        notes = []
+        complexity = intent.complexity
+        energy = intent.energy_level
+        
+        for bar in range(length // 48):
+            bar_start = bar * 48
+            
+            if intent.genre == 'dnb':
+                # DnB snare on 2 and 4
+                notes.append({
+                    'pitch': 38,
+                    'position': bar_start + 12,
+                    'length': 6,
+                    'velocity': int(80 + energy * 30)
+                })
+                notes.append({
+                    'pitch': 38,
+                    'position': bar_start + 36,
+                    'length': 6,
+                    'velocity': int(80 + energy * 30)
+                })
+            else:
+                # Standard backbeat
+                notes.append({
+                    'pitch': 38,
+                    'position': bar_start + 24,
+                    'length': 12,
+                    'velocity': int(70 + energy * 30)
+                })
+                
+                if complexity > 0.5:
+                    # Add ghost notes
+                    notes.append({
+                        'pitch': 38,
+                        'position': bar_start + 36,
+                        'length': 6,
+                        'velocity': int(40 + energy * 20)
+                    })
+        
+        return notes
+    
+    def _generate_lead_pattern(self, length: int, intent: MusicalIntent, 
+                              scale_notes: List[int]) -> List[Dict]:
+        """Generate melodic lead patterns"""
+        notes = []
+        complexity = intent.complexity
+        energy = intent.energy_level
+        
+        # Create a melodic phrase
+        phrase_length = 48 if complexity < 0.5 else 24
+        
+        for bar in range(length // phrase_length):
+            bar_start = bar * phrase_length
+            
+            # Generate melodic contour
+            num_notes = int(4 + complexity * 8)
+            positions = sorted([random.randint(0, phrase_length - 6) for _ in range(num_notes)])
+            
+            prev_pitch = scale_notes[0] + 24  # Start in higher octave
+            for pos in positions:
+                # Melodic movement
+                if random.random() < 0.7:
+                    # Stepwise motion
+                    step = random.choice([-1, 1])
+                    note_index = scale_notes.index(prev_pitch % 12) if (prev_pitch % 12) in scale_notes else 0
+                    note_index = (note_index + step) % len(scale_notes)
+                    pitch = scale_notes[note_index] + (prev_pitch // 12) * 12
+                else:
+                    # Leap
+                    pitch = random.choice(scale_notes) + 24
+                
+                notes.append({
+                    'pitch': pitch,
+                    'position': bar_start + pos,
+                    'length': random.choice([6, 12, 24]),
+                    'velocity': int(60 + energy * 30)
+                })
+                
+                prev_pitch = pitch
+        
+        return notes
+    
+    def _generate_pad_pattern(self, length: int, intent: MusicalIntent, 
+                             scale_notes: List[int]) -> List[Dict]:
+        """Generate chord pad patterns"""
+        notes = []
+        
+        # Get chord progression
+        progressions = MusicTheoryEngine.CHORD_PROGRESSIONS.get(
+            intent.genre, 
+            [['I', 'V', 'vi', 'IV']]
+        )
+        progression = random.choice(progressions)
+        
+        for bar in range(length // 48):
+            bar_start = bar * 48
+            chord_symbol = progression[bar % len(progression)]
+            
+            # Determine chord type
+            if chord_symbol.islower():
+                chord_type = 'minor7'
+                root_offset = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii'].index(chord_symbol)
+            else:
+                chord_type = 'major7'
+                root_offset = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'].index(chord_symbol)
+            
+            root_note = scale_notes[root_offset % len(scale_notes)] + 48  # Middle register
+            chord_notes = MusicTheoryEngine.get_chord_notes(root_note, chord_type)
+            
+            # Add chord notes
+            for note in chord_notes:
+                notes.append({
+                    'pitch': note,
+                    'position': bar_start,
+                    'length': 48,
+                    'velocity': int(50 + intent.energy_level * 20)
+                })
+        
+        return notes
+    
+    def _generate_arp_pattern(self, length: int, intent: MusicalIntent, 
+                            scale_notes: List[int]) -> List[Dict]:
+        """Generate arpeggiated patterns"""
+        notes = []
+        
+        # Arp speed based on genre
+        if intent.genre == 'trance':
+            step = 3  # 16th notes
+        elif intent.genre == 'ambient':
+            step = 12  # Quarter notes
+        else:
+            step = 6  # 8th notes
+        
+        # Get chord notes
+        chord_notes = MusicTheoryEngine.get_chord_notes(scale_notes[0] + 48, 'minor7')
+        
+        # Arp patterns
+        patterns = {
+            'up': lambda notes: notes,
+            'down': lambda notes: notes[::-1],
+            'updown': lambda notes: notes + notes[-2:0:-1],
+            'random': lambda notes: [random.choice(notes) for _ in range(len(notes) * 2)]
+        }
+        
+        pattern_type = random.choice(list(patterns.keys()))
+        arp_sequence = patterns[pattern_type](chord_notes)
+        
+        for bar in range(length // 48):
+            bar_start = bar * 48
+            for i in range(0, 48, step):
+                note_index = (i // step) % len(arp_sequence)
+                notes.append({
+                    'pitch': arp_sequence[note_index],
+                    'position': bar_start + i,
+                    'length': step - 1,
+                    'velocity': int(50 + intent.energy_level * 30)
+                })
+        
+        return notes
+    
+    def _generate_generic_pattern(self, length: int, intent: MusicalIntent, 
+                                 scale_notes: List[int]) -> List[Dict]:
+        """Fallback pattern generation"""
+        notes = []
+        
+        for bar in range(length // 48):
+            bar_start = bar * 48
+            num_notes = int(2 + intent.complexity * 6)
+            
+            for _ in range(num_notes):
+                pos = random.randint(0, 47)
+                pitch = random.choice(scale_notes) + 36
+                notes.append({
+                    'pitch': pitch,
+                    'position': bar_start + pos,
+                    'length': random.choice([6, 12]),
+                    'velocity': int(50 + intent.energy_level * 40)
+                })
+        
+        return notes
+    
     def _generate_pattern_notes(self, element: str, length: int, 
                                complexity: float, energy: float) -> List[Dict]:
-        """Generate pattern notes based on element type and parameters"""
+        """Legacy pattern generation - redirect to intelligent version"""
+        intent = MusicalIntent(
+            complexity=complexity,
+            energy_level=energy
+        )
+        return self._generate_intelligent_pattern(element, length, intent)[:1]  # Return minimal for legacy
+        
         notes = []
         
         if element == "kick":
@@ -708,6 +1971,8 @@ class LMMSAIBrain:
     
     def _get_pattern_style(self, element: str, intent: MusicalIntent) -> str:
         """Describe the pattern style based on element and intent"""
+        characteristics = intent.characteristics or []
+        
         if element == "kick":
             if intent.complexity < 0.4:
                 return "four-on-the-floor"
@@ -718,7 +1983,7 @@ class LMMSAIBrain:
         elif element == "bass":
             if intent.complexity > 0.6:
                 return "rolling"
-            elif "acid" in intent.characteristics:
+            elif "acid" in characteristics:
                 return "acid"
             else:
                 return "simple"
@@ -729,6 +1994,242 @@ class LMMSAIBrain:
                 return "shuffled"
         else:
             return "standard"
+    
+    def analyze_reference_track(self, reference: str) -> Dict[str, Any]:
+        """Analyze a reference track or artist style to learn production characteristics"""
+        
+        # Reference artist/track database
+        reference_styles = {
+            'daft punk': {
+                'genre': 'house',
+                'characteristics': ['funky', 'filtered', 'robotic', 'vintage'],
+                'production_style': 'polished',
+                'effects_intensity': 0.7,
+                'compression': 'heavy',
+                'sidechain': 'heavy',
+                'filter_movement': True,
+                'signature_elements': ['vocoder', 'talkbox', 'filtered_disco']
+            },
+            'skrillex': {
+                'genre': 'dubstep',
+                'characteristics': ['aggressive', 'distorted', 'glitchy', 'heavy'],
+                'production_style': 'modern',
+                'effects_intensity': 0.9,
+                'compression': 'extreme',
+                'fm_synthesis': True,
+                'signature_elements': ['growl_bass', 'fm_wobble', 'vocal_chops']
+            },
+            'deadmau5': {
+                'genre': 'progressive house',
+                'characteristics': ['progressive', 'melodic', 'clean', 'wide'],
+                'production_style': 'polished',
+                'effects_intensity': 0.5,
+                'sidechain': 'moderate',
+                'pluck_synths': True,
+                'signature_elements': ['pluck_lead', 'rolling_bass', 'chord_progression']
+            },
+            'aphex twin': {
+                'genre': 'idm',
+                'characteristics': ['experimental', 'complex', 'glitchy', 'abstract'],
+                'production_style': 'raw',
+                'effects_intensity': 0.8,
+                'complexity': 0.9,
+                'breakbeat_manipulation': True,
+                'signature_elements': ['acid_bass', 'drill_programming', 'ambient_textures']
+            },
+            'carl cox': {
+                'genre': 'techno',
+                'characteristics': ['driving', 'hypnotic', 'raw', 'underground'],
+                'production_style': 'raw',
+                'effects_intensity': 0.6,
+                'groove_importance': 0.9,
+                'signature_elements': ['rolling_bass', 'filtered_percussion', 'acid_stabs']
+            },
+            'marshmello': {
+                'genre': 'future bass',
+                'characteristics': ['bright', 'melodic', 'uplifting', 'commercial'],
+                'production_style': 'polished',
+                'effects_intensity': 0.5,
+                'chord_focus': True,
+                'signature_elements': ['future_chords', 'vocal_chops', 'pitched_snares']
+            },
+            'noisia': {
+                'genre': 'neurofunk',
+                'characteristics': ['technical', 'precise', 'dark', 'complex'],
+                'production_style': 'clinical',
+                'effects_intensity': 0.8,
+                'sound_design_focus': True,
+                'signature_elements': ['reese_bass', 'intricate_drums', 'sci_fi_atmosphere']
+            }
+        }
+        
+        # Search for matching reference
+        reference_lower = reference.lower()
+        
+        for artist, style in reference_styles.items():
+            if artist in reference_lower:
+                return style
+        
+        # Try to infer from description
+        if 'like' in reference_lower:
+            for artist, style in reference_styles.items():
+                if artist in reference_lower:
+                    return style
+        
+        # Default style inference from keywords
+        style_inference = {
+            'genre': 'house',
+            'characteristics': [],
+            'production_style': 'modern',
+            'effects_intensity': 0.5
+        }
+        
+        if 'vintage' in reference_lower or 'old school' in reference_lower:
+            style_inference['production_style'] = 'vintage'
+            style_inference['characteristics'].append('warm')
+        
+        if 'modern' in reference_lower or 'future' in reference_lower:
+            style_inference['production_style'] = 'modern'
+            style_inference['characteristics'].append('clean')
+        
+        if 'underground' in reference_lower:
+            style_inference['production_style'] = 'raw'
+            style_inference['characteristics'].append('dark')
+        
+        return style_inference
+    
+    def apply_reference_style(self, intent: MusicalIntent, reference_style: Dict[str, Any]) -> MusicalIntent:
+        """Apply reference track characteristics to the musical intent"""
+        
+        # Override or enhance intent with reference characteristics
+        if 'genre' in reference_style and not intent.genre:
+            intent.genre = reference_style['genre']
+        
+        if 'characteristics' in reference_style:
+            if not intent.characteristics:
+                intent.characteristics = []
+            intent.characteristics.extend(reference_style['characteristics'])
+            intent.characteristics = list(set(intent.characteristics))  # Remove duplicates
+        
+        if 'effects_intensity' in reference_style:
+            intent.effects_intensity = reference_style['effects_intensity']
+        
+        if 'production_style' in reference_style:
+            intent.production_style = reference_style['production_style']
+        
+        if 'complexity' in reference_style:
+            intent.complexity = reference_style['complexity']
+        
+        # Add signature elements to requirements
+        if 'signature_elements' in reference_style:
+            if not intent.specific_requirements:
+                intent.specific_requirements = {}
+            intent.specific_requirements['signature_elements'] = reference_style['signature_elements']
+        
+        return intent
+    
+    def handle_modification_request(self, request: str, project_file: str = None) -> str:
+        """
+        Handle requests to modify existing projects
+        """
+        request_lower = request.lower()
+        
+        # Check if note editor is available
+        if not HAS_NOTE_EDITOR:
+            print("Note editor not available, cannot modify existing notes")
+            return None
+        
+        # Load existing project if provided
+        if project_file and os.path.exists(project_file):
+            self.controller.load_project(project_file)
+        
+        # Handle specific modification requests
+        if ("octave" in request_lower and ("remove" in request_lower or "fix" in request_lower or "jump" in request_lower)) or \
+           ("bassline" in request_lower and "single" in request_lower and "octave" in request_lower):
+            # Determine if we should regenerate or modify
+            if "regenerat" in request_lower or "new" in request_lower:
+                # User wants to regenerate the pattern
+                print("Regenerating bassline pattern without octave jumps...")
+                # This would need to regenerate the pattern
+                # For now, we'll modify existing notes
+                pass
+            
+            # Fix octave jumps in existing bassline
+            success = False
+            
+            # Try to find bass track
+            for track_name in ["Bass", "bass", "Bassline", "bassline", "Sub", "sub"]:
+                track = self.controller.get_track(track_name)
+                if track:
+                    print(f"Modifying existing notes in track: {track_name}")
+                    success = self.controller.fix_bassline_octaves(track_name)
+                    if success:
+                        print(f"Successfully removed octave jumps from {track_name}")
+                        break
+            
+            if not success:
+                # Try to find any track with bass-like patterns
+                all_tracks = self.controller.root.findall('.//track')
+                for track in all_tracks:
+                    track_name = track.get('name', '')
+                    if 'bass' in track_name.lower() or 'sub' in track_name.lower():
+                        print(f"Fixing octave jumps in track: {track_name}")
+                        success = self.controller.fix_bassline_octaves(track_name)
+                        if success:
+                            break
+            
+            if success:
+                # Save the modified project
+                import time
+                timestamp = int(time.time())
+                filename = f"ai_modified_{timestamp}.mmp"
+                self.controller.save_project(filename)
+                print(f"Successfully fixed bassline octaves. Saved to: {filename}")
+                return filename
+            else:
+                print("Could not find bass track to fix")
+                return None
+        
+        elif "transpose" in request_lower:
+            # Handle transposition
+            # Extract semitones from request
+            import re
+            match = re.search(r'(-?\d+)\s*semi', request_lower)
+            if match:
+                semitones = int(match.group(1))
+                # Apply to all tracks or specific track
+                for track in self.controller.root.findall('.//track'):
+                    track_name = track.get('name', '')
+                    if track_name:
+                        self.controller.transpose_track(track_name, semitones)
+                
+                # Save
+                import time
+                filename = f"ai_transposed_{int(time.time())}.mmp"
+                self.controller.save_project(filename)
+                return filename
+        
+        elif "quantize" in request_lower:
+            # Quantize notes
+            grid_size = 12  # Default to 16th notes
+            if "8th" in request_lower:
+                grid_size = 24
+            elif "quarter" in request_lower:
+                grid_size = 48
+            
+            # Apply to all tracks
+            for track in self.controller.root.findall('.//track'):
+                track_name = track.get('name', '')
+                if track_name:
+                    self.controller.quantize_track(track_name, grid_size)
+            
+            # Save
+            import time
+            filename = f"ai_quantized_{int(time.time())}.mmp"
+            self.controller.save_project(filename)
+            return filename
+        
+        return None
     
     def execute_production_plan(self, plan: ProductionPlan) -> str:
         """Execute the production plan using LMMS controller"""
@@ -752,48 +2253,72 @@ class LMMSAIBrain:
             
             # Set instrument parameters
             for param, value in track_def["parameters"].items():
-                self.controller.set_instrument_parameter(track_name, param, value)
+                try:
+                    self.controller.set_instrument_parameter(track_name, param, value)
+                except Exception as e:
+                    print(f"Warning: Could not set parameter {param}: {e}")
             
-            # Set volume and panning
-            if "volume" in track_def:
-                self.controller.set_volume(track_name, track_def["volume"])
-            if "panning" in track_def:
-                self.controller.set_panning(track_name, track_def["panning"])
+            # Set volume and panning directly on track
+            track = self.controller.get_track(track_name)
+            if track:
+                inst_track = track.find('instrumenttrack')
+                if inst_track:
+                    if "volume" in track_def:
+                        inst_track.set('vol', str(track_def["volume"]))
+                    if "panning" in track_def:
+                        inst_track.set('pan', str(track_def["panning"]))
             
-            # Add effects
+            # Add effects to track
             for effect in track_def.get("effects", []):
-                self.controller.add_effect(track_name, effect["type"], **effect.get("params", {}))
+                try:
+                    # Skip effects that should be on master
+                    if effect.get('target') == 'master':
+                        continue
+                    self.controller.add_effect(track_name, effect["type"], **effect.get("params", {}))
+                except Exception as e:
+                    print(f"Warning: Could not add effect {effect['type']} to {track_name}: {e}")
         
         # Create patterns
         for pattern_def in plan.patterns:
             track_name = pattern_def["track"]
             pattern_name = pattern_def["name"]
             
-            # Add pattern
+            # Add pattern using complete controller
             pattern = self.controller.add_pattern(track_name, pattern_name, 0, 
                                                  plan.arrangement["loop_length"])
             
-            # Add notes
+            # Add notes using complete controller
             if pattern:
                 for note_data in pattern_def["notes"]:
-                    note = Note(
+                    self.controller.add_note(
+                        pattern,
                         pitch=note_data["pitch"],
-                        position=note_data["position"],
+                        pos=note_data["position"],
                         length=note_data["length"],
                         velocity=note_data.get("velocity", 100),
-                        panning=note_data.get("panning", 0)
+                        pan=note_data.get("panning", 0)
                     )
-                    pattern.append(note.to_xml())
         
-        # Add master effects
+        # Add master effects to mixer channel 0
         for effect in plan.effects:
             if effect.get("target") == "master":
-                # Would add to master channel
-                pass
+                try:
+                    # Add to mixer channel 0 (master)
+                    self.controller.add_mixer_effect(0, effect["type"], **effect.get("params", {}))
+                except Exception as e:
+                    print(f"Warning: Could not add master effect {effect['type']}: {e}")
         
-        # Set loop points
+        # Set loop points if method exists
         if plan.arrangement.get("loop_length"):
-            self.controller.set_loop_points(0, plan.arrangement["loop_length"])
+            try:
+                # Set timeline loop points
+                timeline = self.controller.root.find('.//timeline')
+                if timeline is not None:
+                    timeline.set('lp0pos', '0')
+                    timeline.set('lp1pos', str(plan.arrangement["loop_length"]))
+                    timeline.set('lpstate', '1')
+            except Exception as e:
+                print(f"Warning: Could not set loop points: {e}")
         
         # Generate unique filename
         import time
@@ -805,15 +2330,172 @@ class LMMSAIBrain:
         
         return filename
     
-    def create_music(self, request: str) -> str:
+    def _generate_creative_pattern(self, element: str, length: int, 
+                                  intent: MusicalIntent) -> List[Dict]:
+        """Generate truly unique patterns using creative algorithms"""
+        if not self.creative_engine:
+            return self._generate_intelligent_pattern(element, length, intent)
+        
+        notes = []
+        bars = length // 48
+        
+        # Generate complete drum kit for consistency
+        if not hasattr(self, '_current_kit'):
+            self._current_kit = self.creative_engine.generate_drum_kit(16)
+        
+        kit = self._current_kit
+        
+        # Map element to kit pattern
+        pattern_map = {
+            'kick': kit['kick'],
+            'snare': kit['snare'],
+            'hats': kit['hat'],
+            'hat': kit['hat'],
+            'hihat': kit['hat'],
+            'perc': kit.get('perc', kit['hat'])
+        }
+        
+        base_pattern = pattern_map.get(element, kit['kick'])
+        
+        # Generate notes for each bar
+        for bar in range(bars):
+            bar_start = bar * 48
+            
+            # Vary pattern every few bars
+            if bar > 0 and bar % 4 == 0:
+                # Generate variation
+                base_pattern = self.creative_engine.generate_complementary_pattern(
+                    base_pattern,
+                    random.choice(['interlocking', 'phasing', 'polyrhythmic'])
+                )
+            
+            # Convert pattern to notes
+            if element == 'kick':
+                pitch = 36
+                for i, hit in enumerate(base_pattern):
+                    if hit:
+                        notes.append({
+                            'pitch': pitch,
+                            'position': bar_start + i * 3,
+                            'length': 12,
+                            'velocity': int(80 + intent.energy_level * 40 + random.randint(-10, 10))
+                        })
+            
+            elif element == 'snare':
+                pitch = 38
+                for i, hit in enumerate(base_pattern):
+                    if hit:
+                        notes.append({
+                            'pitch': pitch,
+                            'position': bar_start + i * 3,
+                            'length': 9,
+                            'velocity': int(70 + intent.energy_level * 35 + random.randint(-5, 10))
+                        })
+            
+            elif element in ['hats', 'hat', 'hihat']:
+                for i, hit in enumerate(base_pattern):
+                    if hit:
+                        pitch = 42 if random.random() < 0.8 else 46
+                        notes.append({
+                            'pitch': pitch,
+                            'position': bar_start + i * 3,
+                            'length': 3,
+                            'velocity': int(50 + intent.energy_level * 25 + random.randint(-10, 15))
+                        })
+            
+            elif element == 'bass':
+                # Creative bassline using pattern as rhythm
+                root_note = 36
+                scale_notes = MusicTheoryEngine.get_scale_notes(root_note, 'minor')
+                
+                for i, hit in enumerate(base_pattern):
+                    if hit:
+                        if i % 8 == 0:
+                            pitch = root_note
+                        else:
+                            pitch = random.choice(scale_notes[:5])
+                        
+                        notes.append({
+                            'pitch': pitch,
+                            'position': bar_start + i * 3,
+                            'length': random.choice([6, 9, 12]),
+                            'velocity': int(65 + intent.energy_level * 30 + random.randint(-5, 10))
+                        })
+        
+        # Clear kit for next track
+        if element == 'perc':
+            delattr(self, '_current_kit')
+        
+        return notes
+    
+    def enable_creative_mode(self, enabled: bool = True):
+        """Enable or disable creative pattern generation"""
+        if HAS_CREATIVE_ENGINE:
+            self.use_creative_patterns = enabled
+            # Disable musical intelligence if enabling creative patterns
+            if enabled and self.use_musical_intelligence:
+                self.use_musical_intelligence = False
+                print("Musical Intelligence disabled in favor of Creative Patterns")
+            print(f"Creative patterns {'enabled' if enabled else 'disabled'}")
+        else:
+            print("Creative Pattern Engine not available")
+    
+    def enable_musical_intelligence(self, enabled: bool = True):
+        """Enable or disable musical intelligence for professional sound"""
+        if HAS_MUSICAL_INTELLIGENCE:
+            self.use_musical_intelligence = enabled
+            # Disable creative patterns if enabling musical intelligence
+            if enabled and self.use_creative_patterns:
+                self.use_creative_patterns = False
+                print("Creative Patterns disabled in favor of Musical Intelligence")
+            print(f"Musical Intelligence {'enabled' if enabled else 'disabled'}")
+        else:
+            print("Musical Intelligence not available")
+    
+    def suggest_improvements(self, project_file: str) -> List[str]:
+        """Analyze existing project and suggest improvements"""
+        suggestions = []
+        
+        # This would analyze the project and provide intelligent suggestions
+        # For now, return general tips
+        suggestions.append("Consider adding sidechain compression to create pumping effect")
+        suggestions.append("Try layering multiple bass sounds for richer low-end")
+        suggestions.append("Add reverb send for spatial depth")
+        suggestions.append("Use EQ to create frequency space between elements")
+        suggestions.append("Automate filter cutoff for dynamic movement")
+        
+        return suggestions
+    
+    def create_music(self, request: str, existing_project: str = None) -> str:
         """
-        Main entry point: interpret request and create music
+        Main entry point: interpret request and create music with intelligence
         Returns the path to the generated project file
         """
+        # Check if this is a modification request
+        request_lower = request.lower()
+        is_modification = any(word in request_lower for word in [
+            'fix', 'remove', 'octave', 'jump', 'transpose', 'quantize',
+            'modify', 'change', 'edit', 'update'
+        ])
+        
+        if is_modification and (existing_project or HAS_NOTE_EDITOR):
+            # Try to handle as modification
+            result = self.handle_modification_request(request, existing_project)
+            if result:
+                return result
+            # If modification failed, continue with regular creation
+        
         print(f"Interpreting request: {request}")
         
         # Interpret the musical intent
         intent = self.interpret_request(request)
+        
+        # Check for reference tracks/artists
+        if 'like' in request.lower() or 'style of' in request.lower():
+            reference_style = self.analyze_reference_track(request)
+            intent = self.apply_reference_style(intent, reference_style)
+            print(f"Applied reference style: {reference_style.get('genre', 'unknown')}")
+        
         print(f"Interpreted intent: Genre={intent.genre}, Mood={intent.mood}, "
               f"Energy={intent.energy_level:.2f}, Effects={intent.effects_intensity:.2f}")
         
@@ -827,6 +2509,13 @@ class LMMSAIBrain:
         project_file = self.execute_production_plan(plan)
         
         print(f"Music created successfully: {project_file}")
+        
+        # Show pattern statistics if using creative engine
+        if self.use_creative_patterns and self.creative_engine:
+            print(f"Unique patterns generated: {len(self.creative_engine.pattern_cache)}")
+            if self.creative_engine.last_algorithm:
+                print(f"Last algorithm used: {self.creative_engine.last_algorithm.value}")
+        
         return project_file
 
 

@@ -1094,7 +1094,13 @@ class LMMSCompleteController:
         
         track = ET.SubElement(trackcontainer, 'track')
         track.set('muted', '0')
-        track.set('type', str(track_type.value))
+        
+        # Handle both TrackType enum and int values
+        if isinstance(track_type, TrackType):
+            track.set('type', str(track_type.value))
+        else:
+            track.set('type', str(track_type))
+        
         track.set('name', name)
         
         if track_type == TrackType.INSTRUMENT:

@@ -20,6 +20,7 @@ except ImportError:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lmms_ai_brain import LMMSAIBrain, MusicalIntent, ProductionPlan
 from lmms_actions import Note
+from gpt5_context_aware import ContextAwareGPT5Interface, ContextAnalyzer, ProjectContext
 
 
 class GPT5MusicInterface:
@@ -28,10 +29,13 @@ class GPT5MusicInterface:
     This system uses multiple AI layers for maximum intelligence
     """
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, context_aware: bool = True):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.brain = LMMSAIBrain(self.api_key)
         self.session_history = []
+        self.context_aware = context_aware
+        self.context_interface = ContextAwareGPT5Interface(self.api_key) if context_aware else None
+        self.current_project = None
         
         if self.api_key and HAS_OPENAI:
             openai.api_key = self.api_key
@@ -42,11 +46,46 @@ class GPT5MusicInterface:
     def process_request(self, request: str) -> Dict[str, Any]:
         """
         Process any musical request with full AI intelligence
+        Now with context awareness like Cursor
         """
         
         # Add to session history for context
         self.session_history.append({"role": "user", "request": request})
         
+        # Check if we should use context-aware processing
+        if self.context_aware and self.context_interface:
+            # Determine if this is a modification request or new creation
+            request_lower = request.lower()
+            is_modification = any(word in request_lower for word in [
+                'add', 'change', 'modify', 'make it', 'more', 'less', 
+                'heavier', 'lighter', 'faster', 'slower', 'variation'
+            ])
+            
+            if is_modification and self.current_project:
+                # Use context-aware processing for modifications
+                print("Analyzing existing project context...")
+                result = self.context_interface.process_request_with_context(
+                    request, 
+                    self.current_project
+                )
+                
+                if result.get('project_file'):
+                    self.current_project = result['project_file']
+                    
+                # Add context-aware suggestions
+                if result.get('status') == 'success':
+                    result['next_suggestions'] = self.context_interface.suggest_next_actions()
+                    
+                return result
+            
+            # For new projects, check if we should analyze context from templates
+            elif 'like' in request_lower or 'similar to' in request_lower:
+                # Analyze reference for context
+                print("Analyzing reference style for context...")
+                # This would analyze a reference track/style
+                pass
+        
+        # Standard processing (original behavior)
         # Use GPT to enhance and clarify the request if needed
         enhanced_request = self._enhance_request(request)
         
@@ -60,6 +99,7 @@ class GPT5MusicInterface:
         try:
             # Let the AI brain handle everything
             project_file = self.brain.create_music(enhanced_request)
+            self.current_project = project_file  # Store for context-aware modifications
             
             # Analyze what was created
             analysis = self._analyze_creation(project_file, enhanced_request)
@@ -70,6 +110,13 @@ class GPT5MusicInterface:
                 "analysis": analysis,
                 "instructions": f"Open {project_file} in LMMS to hear the music"
             })
+            
+            # If context-aware, add suggestions
+            if self.context_aware and self.context_interface:
+                # Analyze the newly created project
+                context = self.context_interface.analyzer.analyze_project(project_file)
+                result['context_summary'] = self.context_interface._summarize_context(context)
+                result['next_suggestions'] = context.suggestions[:3] if context.suggestions else []
             
             # Add to history
             self.session_history.append({"role": "assistant", "result": result})
@@ -178,6 +225,41 @@ class GPT5MusicInterface:
         
         return results
     
+    def preview_changes(self, request: str) -> Dict[str, Any]:
+        """
+        Preview what changes would be made without applying them
+        Like Cursor's diff preview before accepting changes
+        """
+        if self.context_aware and self.context_interface:
+            return self.context_interface.preview_changes(request)
+        else:
+            return {
+                "message": "Context-aware mode is not enabled",
+                "suggestion": "Initialize with context_aware=True to enable preview"
+            }
+    
+    def get_current_context(self) -> Optional[Dict[str, Any]]:
+        """
+        Get the current project context
+        Like Cursor showing the current file/function context
+        """
+        if not self.current_project:
+            return None
+            
+        if self.context_aware and self.context_interface:
+            context = self.context_interface.analyzer.analyze_project(self.current_project)
+            return {
+                "file": self.current_project,
+                "summary": self.context_interface._summarize_context(context),
+                "tracks": len(context.tracks),
+                "tempo": context.tempo,
+                "key": context.key,
+                "genre": context.genre,
+                "style": context.style_characteristics,
+                "suggestions": context.suggestions
+            }
+        return {"file": self.current_project}
+    
     def suggest_variations(self, original_request: str) -> List[str]:
         """
         Suggest variations of a musical request
@@ -228,23 +310,79 @@ class GPT5MusicInterface:
         """
         Interactive mode for continuous music creation
         """
-        print("🎵 GPT-5 Music Interface - Interactive Mode")
+        print("GPT-5 Music Interface - Interactive Mode")
+        if self.context_aware:
+            print("Context-Aware Mode: ENABLED")
         print("Type your musical requests, or 'quit' to exit")
         print("Examples:")
         print("  - 'make a heavy techno beat'")
         print("  - 'create something dark and minimal'")
         print("  - 'I want aggressive drums with distortion'")
+        if self.context_aware:
+            print("  - 'add more bass' (modifies existing project)")
+            print("  - 'make it heavier' (context-aware modification)")
+        print("\nCommands:")
+        print("  - context: Show current project context")
+        print("  - preview: Preview changes before applying")
+        print("  - suggestions: Get AI suggestions")
         print("-" * 50)
         
         while True:
-            request = input("\n🎹 Your request: ").strip()
+            request = input("\n> ").strip()
             
             if request.lower() in ['quit', 'exit', 'q']:
-                print("Goodbye! 🎵")
+                print("Goodbye.")
                 break
             
             if request.lower() == 'help':
                 self._show_help()
+                continue
+            
+            if request.lower() == 'context':
+                # Show current context
+                context = self.get_current_context()
+                if context:
+                    print("\nCurrent Project Context:")
+                    print(f"  File: {context.get('file', 'None')}")
+                    print(f"  Summary: {context.get('summary', 'Empty')}")
+                    print(f"  Tracks: {context.get('tracks', 0)}")
+                    print(f"  Tempo: {context.get('tempo', 'Unknown')} BPM")
+                    print(f"  Key: {context.get('key', 'Unknown')}")
+                    if context.get('suggestions'):
+                        print("\nSuggestions:")
+                        for s in context['suggestions'][:3]:
+                            print(f"  - {s}")
+                else:
+                    print("No project loaded yet. Create some music first!")
+                continue
+            
+            if request.lower().startswith('preview'):
+                # Preview changes
+                if len(request.split(' ', 1)) > 1:
+                    preview_request = request.split(' ', 1)[1]
+                    preview = self.preview_changes(preview_request)
+                    print("\nPreview of changes:")
+                    print(f"  Current: {preview.get('current_state', 'Unknown')}")
+                    if preview.get('proposed_changes'):
+                        print("  Proposed changes:")
+                        for key, changes in preview['proposed_changes'].items():
+                            if changes:
+                                print(f"    - {key}: {len(changes)} changes")
+                    if preview.get('impact'):
+                        print(f"  Impact: {preview['impact'].get('risk_level', 'unknown')} risk")
+                else:
+                    print("Usage: preview <your request>")
+                continue
+            
+            if request.lower() == 'suggestions':
+                # Get AI suggestions
+                if self.context_aware and self.context_interface and self.current_project:
+                    suggestions = self.context_interface.suggest_next_actions()
+                    print("\nAI Suggestions based on current context:")
+                    for i, s in enumerate(suggestions, 1):
+                        print(f"  {i}. {s}")
+                else:
+                    print("Create a project first to get contextual suggestions")
                 continue
             
             if request.lower().startswith('variations'):
@@ -252,33 +390,33 @@ class GPT5MusicInterface:
                 if self.session_history:
                     last_request = self.session_history[-1].get("request", "")
                     variations = self.suggest_variations(last_request)
-                    print("\n📝 Variations you could try:")
+                    print("\nVariations you could try:")
                     for i, var in enumerate(variations, 1):
                         print(f"  {i}. {var}")
                 continue
             
             # Process the request
-            print(f"\n🎧 Creating music...")
+            print(f"\nCreating music...")
             result = self.process_request(request)
             
             if result["status"] == "success":
-                print(f"✅ Success! {result['analysis']['description']}")
-                print(f"📁 File: {result['project_file']}")
-                print(f"💡 Tip: Open this file in LMMS to hear your music")
+                print(f"Success. {result['analysis']['description']}")
+                print(f"File: {result['project_file']}")
+                print(f"Open this file in LMMS to hear your music")
                 
                 # Suggest variations
                 variations = self.suggest_variations(request)
                 if variations:
-                    print("\n💭 You might also like:")
+                    print("\nYou might also like:")
                     for var in variations[:2]:
                         print(f"  - {var}")
             else:
-                print(f"❌ Error: {result.get('error', 'Unknown error')}")
+                print(f"Error: {result.get('error', 'Unknown error')}")
     
     def _show_help(self):
         """Show help information"""
         print("""
-        🎵 Music Creation Help
+        Music Creation Help
         
         You can make requests like:
         - Genre-based: "create techno", "make house music", "generate dnb"
@@ -468,11 +606,11 @@ def main():
         result = interface.process_request(request)
         
         if result["status"] == "success":
-            print(f"\n✅ Music created successfully!")
-            print(f"📁 File: {result['project_file']}")
-            print(f"📝 {result['analysis']['description']}")
+            print(f"\nMusic created successfully.")
+            print(f"File: {result['project_file']}")
+            print(f"{result['analysis']['description']}")
         else:
-            print(f"\n❌ Error: {result.get('error', 'Unknown error')}")
+            print(f"\nError: {result.get('error', 'Unknown error')}")
     else:
         # Start interactive mode by default
         interface.interactive_mode()

@@ -562,12 +562,19 @@ class LMMSActions(LMMSCompleteController):
     def quantize_notes(self, notes: List[Note], quantize_value: QuantizeMode,
                       quantize_pos: bool = True, quantize_len: bool = False) -> List[Note]:
         """Quantize note positions and/or lengths"""
-        if quantize_value == QuantizeMode.OFF:
-            return notes
+        # Handle both QuantizeMode enum and int values
+        if isinstance(quantize_value, QuantizeMode):
+            if quantize_value == QuantizeMode.OFF:
+                return notes
+            quantize_val = quantize_value.value
+        else:
+            if quantize_value == 0:
+                return notes
+            quantize_val = quantize_value
         
         # Calculate quantize grid in ticks (assuming 48 ticks per quarter note)
         ticks_per_quarter = 48
-        quantize_ticks = (ticks_per_quarter * 4) // quantize_value.value
+        quantize_ticks = (ticks_per_quarter * 4) // quantize_val
         
         quantized_notes = []
         for note in notes:
