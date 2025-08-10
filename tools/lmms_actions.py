@@ -317,6 +317,37 @@ class LMMSActions(LMMSCompleteController):
             return True
         return False
     
+    def set_volume(self, track_name: str, volume: int) -> bool:
+        """Set track volume (0-100)"""
+        track = self.get_track(track_name)
+        if not track:
+            return False
+        
+        inst_track = track.find('instrumenttrack')
+        if inst_track:
+            inst_track.set('vol', str(max(0, min(100, volume))))
+            return True
+        
+        sample_track = track.find('sampletrack')
+        if sample_track:
+            sample_track.set('vol', str(max(0, min(100, volume))))
+            return True
+        
+        return False
+    
+    def set_panning(self, track_name: str, panning: int) -> bool:
+        """Set track panning (-100 to 100)"""
+        track = self.get_track(track_name)
+        if not track:
+            return False
+        
+        inst_track = track.find('instrumenttrack')
+        if inst_track:
+            inst_track.set('pan', str(max(-100, min(100, panning))))
+            return True
+        
+        return False
+    
     def move_track(self, track_name: str, position: int) -> bool:
         """Move track to new position in track list"""
         self.save_undo_state()
