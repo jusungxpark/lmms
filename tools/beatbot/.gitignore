@@ -1,0 +1,10 @@
+# Never commit these files
+.env
+config.json
+*.pyc
+__pycache__/
+.beatbot-venv/
+build/
+*.wav
+*.mp3
+*.mp4

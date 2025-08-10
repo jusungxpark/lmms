@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!DOCTYPE multimedia-project>
+<multimedia-project version="1.0" creator="BeatBot" creatorversion="0.0.1" type="song">
+  <head timesig_numerator="4" timesig_denominator="4" bpm="120" mastervol="100" masterpitch="0" />
+  <song>
+    <trackcontainer width="600" x="5" y="5" maximized="0" height="300" visible="1" type="song" minimized="0">
+      <track muted="0" type="2" name="Sample Track">
+        <sampletrack vol="100">
+          <fxchain numofeffects="0" enabled="0" />
+        </sampletrack>
+      </track>
+    </trackcontainer>
+  </song>
+</multimedia-project>
+
+
