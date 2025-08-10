@@ -1,0 +1,160 @@
+<?xml version="1.0"?>
+<!DOCTYPE multimedia-project>
+<multimedia-project version="1.0" creator="LMMS" creatorversion="1.2.2" type="song">
+  <head timesig_numerator="4" timesig_denominator="4" bpm="130" mastervol="100" masterpitch="0"/>
+  <song>
+    <trackcontainer type="song" x="5" y="5" width="600" height="300" visible="1" minimized="0" maximized="0">
+      
+      <!-- Heavy Kick Track -->
+      <track muted="0" type="0" name="Heavy Kick">
+        <instrumenttrack pan="0" mixch="0" pitch="0" basenote="57" vol="100">
+          <instrument name="kicker">
+            <kicker version="1" decay="250" dist="0.95" distend="0.9" diststart="0.8" end="35" env="0.2" gain="1.5" noise="0.1" slope="0.08" start="180" startclick="0.8"/>
+          </instrument>
+          <eldata fres="0.5" ftype="0" fcut="100" fwet="0">
+            <elvol lspd_denominator="4" pdel="0" userwavefile="" dec="0.1" lamt="0" syncmode="0" latt="0" rel="0.05" sus="0.3" amt="0" x100="0" att="0" lpdel="0" hold="0.1" lshp="0" lspd="0.1" ctlenvamt="0" lspd_numerator="4"/>
+            <elcut lspd_denominator="4" pdel="0" userwavefile="" dec="0.5" lamt="0" syncmode="0" latt="0" rel="0.1" sus="0.5" amt="0" x100="0" att="0" lpdel="0" hold="0.5" lshp="0" lspd="0.1" ctlenvamt="0" lspd_numerator="4"/>
+            <elres lspd_denominator="4" pdel="0" userwavefile="" dec="0.5" lamt="0" syncmode="0" latt="0" rel="0.1" sus="0.5" amt="0" x100="0" att="0" lpdel="0" hold="0.5" lshp="0" lspd="0.1" ctlenvamt="0" lspd_numerator="4"/>
+          </eldata>
+          <chordcreator chord="0" chordrange="1" chord-enabled="0"/>
+          <arpeggiator arptime="100" arprange="1" arptime_denominator="4" syncmode="0" arpmode="0" arp-enabled="0" arp="0" arptime_numerator="4" arpdir="0" arpgate="100"/>
+          <midiport inputcontroller="0" fixedoutputvelocity="-1" inputchannel="0" outputcontroller="0" writable="0" outputchannel="1" fixedinputvelocity="-1" outputprogram="1" readable="0"/>
+          <fxchain numofeffects="2" enabled="1">
+            <effect name="bitcrush">
+              <bitcrush rate="8000" bits="8" stereo="50" gain_in="2" gain_out="1.5" clip="0.8"/>
+            </effect>
+            <effect name="waveshaper">
+              <waveshaper input="150" output="100" wavegraph="0:0.5,0.5:0.8,1:1"/>
+            </effect>
+          </fxchain>
+        </instrumenttrack>
+        <pattern steps="16" muted="0" type="0" name="Kick Pattern" pos="0" len="384" frozen="0">
+          <note key="36" pos="0" len="24" vol="127" pan="0"/>
+          <note key="36" pos="48" len="24" vol="100" pan="0"/>
+          <note key="36" pos="96" len="24" vol="127" pan="0"/>
+          <note key="36" pos="144" len="24" vol="90" pan="0"/>
+          <note key="36" pos="192" len="24" vol="127" pan="0"/>
+          <note key="36" pos="240" len="24" vol="100" pan="0"/>
+          <note key="36" pos="288" len="24" vol="127" pan="0"/>
+          <note key="36" pos="312" len="12" vol="80" pan="0"/>
+          <note key="36" pos="336" len="24" vol="110" pan="0"/>
+        </pattern>
+      </track>
+      
+      <!-- Rolling Bass Track -->
+      <track muted="0" type="0" name="Rolling Bass">
+        <instrumenttrack pan="0" mixch="0" pitch="-24" basenote="57" vol="85">
+          <instrument name="tripleoscillator">
+            <tripleoscillator phoffset2="0" userwavefile0="" finer0="0" userwavefile1="" finer1="0" userwavefile2="" finer2="0" coarse0="0" coarse1="-12" coarse2="0" finel0="3" finel1="-3" modalgo1="2" modalgo2="2" finel2="0" pan0="0" modalgo3="2" pan1="0" stphdetun0="0" pan2="0" stphdetun1="0" wavetype0="2" stphdetun2="0" wavetype1="3" wavetype2="6" vol0="100" vol1="80" phoffset0="0" phoffset1="0" vol2="20"/>
+          </instrument>
+          <eldata fres="0.85" ftype="0" fcut="300" fwet="0">
+            <elvol lspd_denominator="4" pdel="0" userwavefile="" dec="0.2" lamt="0" syncmode="0" latt="0" rel="0.1" sus="0.7" amt="0" x100="0" att="0.01" lpdel="0" hold="0" lshp="0" lspd="0.1" ctlenvamt="0" lspd_numerator="4"/>
+            <elcut lspd_denominator="4" pdel="0" userwavefile="" dec="0.3" lamt="0.8" syncmode="1" latt="0" rel="0.2" sus="0.4" amt="0.9" x100="0" att="0.02" lpdel="0" hold="0" lshp="0" lspd="8" ctlenvamt="0" lspd_numerator="1"/>
+            <elres lspd_denominator="4" pdel="0" userwavefile="" dec="0.5" lamt="0" syncmode="0" latt="0" rel="0.1" sus="0.5" amt="0" x100="0" att="0" lpdel="0" hold="0.5" lshp="0" lspd="0.1" ctlenvamt="0" lspd_numerator="4"/>
+          </eldata>
+          <chordcreator chord="0" chordrange="1" chord-enabled="0"/>
+          <arpeggiator arptime="100" arprange="1" arptime_denominator="4" syncmode="0" arpmode="0" arp-enabled="0" arp="0" arptime_numerator="4" arpdir="0" arpgate="100"/>
+          <midiport inputcontroller="0" fixedoutputvelocity="-1" inputchannel="0" outputcontroller="0" writable="0" outputchannel="1" fixedinputvelocity="-1" outputprogram="1" readable="0"/>
+          <fxchain numofeffects="2" enabled="1">
+            <effect name="bassbooster">
+              <bassbooster freq="80" gain="12" ratio="2.5"/>
+            </effect>
+            <effect name="bitcrush">
+              <bitcrush rate="22050" bits="12" stereo="0" gain_in="1" gain_out="1.2" clip="0.4"/>
+            </effect>
+          </fxchain>
+        </instrumenttrack>
+        <pattern steps="16" muted="0" type="0" name="Bass Pattern" pos="0" len="384" frozen="0">
+          <note key="24" pos="0" len="12" vol="100" pan="0"/>
+          <note key="24" pos="12" len="12" vol="90" pan="0"/>
+          <note key="24" pos="24" len="12" vol="95" pan="0"/>
+          <note key="24" pos="36" len="12" vol="90" pan="0"/>
+          <note key="24" pos="48" len="12" vol="100" pan="0"/>
+          <note key="24" pos="60" len="12" vol="90" pan="0"/>
+          <note key="24" pos="72" len="12" vol="95" pan="0"/>
+          <note key="24" pos="84" len="12" vol="90" pan="0"/>
+          <note key="24" pos="96" len="12" vol="100" pan="0"/>
+          <note key="24" pos="108" len="12" vol="90" pan="0"/>
+          <note key="24" pos="120" len="12" vol="95" pan="0"/>
+          <note key="24" pos="132" len="12" vol="90" pan="0"/>
+          <note key="24" pos="144" len="12" vol="100" pan="0"/>
+          <note key="24" pos="156" len="12" vol="90" pan="0"/>
+          <note key="24" pos="168" len="12" vol="95" pan="0"/>
+          <note key="24" pos="180" len="12" vol="90" pan="0"/>
+          <note key="31" pos="192" len="12" vol="110" pan="0"/>
+          <note key="31" pos="204" len="12" vol="95" pan="0"/>
+          <note key="31" pos="216" len="12" vol="100" pan="0"/>
+          <note key="31" pos="228" len="12" vol="95" pan="0"/>
+          <note key="24" pos="240" len="12" vol="100" pan="0"/>
+          <note key="24" pos="252" len="12" vol="90" pan="0"/>
+          <note key="24" pos="264" len="12" vol="95" pan="0"/>
+          <note key="24" pos="276" len="12" vol="90" pan="0"/>
+          <note key="29" pos="288" len="12" vol="110" pan="0"/>
+          <note key="29" pos="300" len="12" vol="95" pan="0"/>
+          <note key="29" pos="312" len="12" vol="100" pan="0"/>
+          <note key="29" pos="324" len="12" vol="95" pan="0"/>
+          <note key="24" pos="336" len="12" vol="100" pan="0"/>
+          <note key="24" pos="348" len="12" vol="90" pan="0"/>
+          <note key="24" pos="360" len="12" vol="95" pan="0"/>
+          <note key="24" pos="372" len="12" vol="90" pan="0"/>
+        </pattern>
+      </track>
+      
+      <!-- Minimal Hats Track -->
+      <track muted="0" type="0" name="Minimal Hats">
+        <instrumenttrack pan="0" mixch="0" pitch="0" basenote="57" vol="60">
+          <instrument name="kicker">
+            <kicker version="1" decay="30" dist="0.2" distend="0.1" diststart="0.9" end="4000" env="0.01" gain="0.8" noise="0.9" slope="0.001" start="12000" startclick="0.1"/>
+          </instrument>
+          <eldata fres="0.3" ftype="1" fcut="8000" fwet="0">
+            <elvol lspd_denominator="4" pdel="0" userwavefile="" dec="0.05" lamt="0" syncmode="0" latt="0" rel="0.02" sus="0" amt="0" x100="0" att="0" lpdel="0" hold="0" lshp="0" lspd="0.1" ctlenvamt="0" lspd_numerator="4"/>
+            <elcut lspd_denominator="4" pdel="0" userwavefile="" dec="0.5" lamt="0" syncmode="0" latt="0" rel="0.1" sus="0.5" amt="0" x100="0" att="0" lpdel="0" hold="0.5" lshp="0" lspd="0.1" ctlenvamt="0" lspd_numerator="4"/>
+            <elres lspd_denominator="4" pdel="0" userwavefile="" dec="0.5" lamt="0" syncmode="0" latt="0" rel="0.1" sus="0.5" amt="0" x100="0" att="0" lpdel="0" hold="0.5" lshp="0" lspd="0.1" ctlenvamt="0" lspd_numerator="4"/>
+          </eldata>
+          <chordcreator chord="0" chordrange="1" chord-enabled="0"/>
+          <arpeggiator arptime="100" arprange="1" arptime_denominator="4" syncmode="0" arpmode="0" arp-enabled="0" arp="0" arptime_numerator="4" arpdir="0" arpgate="100"/>
+          <midiport inputcontroller="0" fixedoutputvelocity="-1" inputchannel="0" outputcontroller="0" writable="0" outputchannel="1" fixedinputvelocity="-1" outputprogram="1" readable="0"/>
+          <fxchain numofeffects="2" enabled="1">
+            <effect name="delay">
+              <delay delay_time="0.125" feedback="30" lfo_speed="2" lfo_amount="10" output="80"/>
+            </effect>
+            <effect name="bitcrush">
+              <bitcrush rate="44100" bits="6" stereo="80" gain_in="1" gain_out="0.8" clip="0"/>
+            </effect>
+          </fxchain>
+        </instrumenttrack>
+        <pattern steps="16" muted="0" type="0" name="Hat Pattern" pos="0" len="384" frozen="0">
+          <note key="42" pos="24" len="6" vol="50" pan="-30"/>
+          <note key="42" pos="72" len="6" vol="45" pan="30"/>
+          <note key="42" pos="120" len="6" vol="50" pan="-30"/>
+          <note key="42" pos="168" len="6" vol="45" pan="30"/>
+          <note key="42" pos="216" len="6" vol="50" pan="-30"/>
+          <note key="42" pos="264" len="6" vol="45" pan="30"/>
+          <note key="42" pos="312" len="6" vol="60" pan="-30"/>
+          <note key="42" pos="360" len="6" vol="55" pan="30"/>
+        </pattern>
+      </track>
+      
+    </trackcontainer>
+    
+    <mixer x="5" y="310" width="865" height="278" visible="1" minimized="0" maximized="0">
+      <mixerchannel num="0" muted="0" volume="1" name="Master">
+        <fxchain numofeffects="1" enabled="1">
+          <effect name="compressor">
+            <compressor threshold="-12" ratio="4" attack="5" release="100" knee="2" hold="5" range="-30" rms="10" mid_side="0" peak_mode="0" lookahead="5" lookahead_enable="1" limiter="1" output="3" mix="100" auto_makeup="1" audition="0" feedback="0" stereo_balance="0" tilt="0" tilt_freq="500" stereo_link="100"/>
+          </effect>
+        </fxchain>
+      </mixerchannel>
+      <mixerchannel num="1" muted="0" volume="1" name="Channel 1">
+        <fxchain numofeffects="0" enabled="0"/>
+      </mixerchannel>
+    </mixer>
+    
+    <controllerrackview x="880" y="310" width="258" height="278" visible="1" minimized="0"/>
+    <pianoroll x="-11" y="0" width="840" height="480" visible="0" minimized="0"/>
+    <automationeditor x="0" y="0" width="740" height="480" visible="0" minimized="0"/>
+    <projectnotes x="700" y="10" width="400" height="300" visible="0" minimized="0"/>
+    <timeline lp0pos="0" lp1pos="384" lpstate="1"/>
+    <controllers/>
+  </song>
+</multimedia-project>
