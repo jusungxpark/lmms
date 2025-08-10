@@ -13,6 +13,7 @@ SET(LMMS_SRCS
 	gui/EffectRackView.cpp
 	gui/EffectView.cpp
 	gui/AssistantPanel.cpp
+	gui/AiSidebar.cpp
 	gui/embed.cpp
 	gui/FileBrowser.cpp
 	gui/FileRevealer.cpp

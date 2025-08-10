@@ -56,6 +56,7 @@
 #include "PianoView.h"
 #include "PluginBrowser.h"
 #include "AssistantPanel.h"
+#include "AiSidebar.h"
 #include "PluginFactory.h"
 #include "PluginView.h"
 #include "ProjectJournal.h"
@@ -111,6 +112,7 @@ MainWindow::MainWindow() :
 	emit initProgress(tr("Preparing plugin browser"));
     sideBar->appendTab( new PluginBrowser( splitter ) );
     sideBar->appendTab( new AssistantPanel( splitter ) );
+    sideBar->appendTab( new AiSidebar( splitter ) );
 	emit initProgress(tr("Preparing file browsers"));
 
 	sideBar->appendTab(new FileBrowser(FileBrowser::Type::Favorites, ConfigManager::inst()->favoriteItems().join("*"), FileItem::defaultFilters(), "My Favorites",

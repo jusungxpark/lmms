@@ -476,7 +476,7 @@ bool AssistantPanel::tryCreateSampleEdm(const QString& text)
         if (mc) {
             // 4-on-the-floor: add step notes each beat
             for (int b = 0; b < 4; ++b) {
-                Note n(TimePos(bar / 8), TimePos(b * bar), Note::DefaultMiddleKey - 36); // low kick key
+                Note n(TimePos(bar / 8), TimePos(b * bar), DefaultMiddleKey - 36); // low kick key
                 mc->addNote(n, false);
             }
         }
@@ -485,7 +485,7 @@ bool AssistantPanel::tryCreateSampleEdm(const QString& text)
         auto* mc = ensureMidiClip(hats, 0, len);
         if (mc) {
             for (int s = bar / 2; s < len; s += bar) {
-                Note n(TimePos(bar / 16), TimePos(s), Note::DefaultMiddleKey + 12);
+                Note n(TimePos(bar / 16), TimePos(s), DefaultMiddleKey + 12);
                 mc->addNote(n, false);
             }
         }
@@ -495,7 +495,7 @@ bool AssistantPanel::tryCreateSampleEdm(const QString& text)
         if (mc) {
             // claps on 2 and 4
             for (int b : {1, 3}) {
-                Note n(TimePos(bar / 8), TimePos(b * bar), Note::DefaultMiddleKey);
+                Note n(TimePos(bar / 8), TimePos(b * bar), DefaultMiddleKey);
                 mc->addNote(n, false);
             }
         }
@@ -504,7 +504,7 @@ bool AssistantPanel::tryCreateSampleEdm(const QString& text)
         auto* mc = ensureMidiClip(bass, 0, len);
         if (mc) {
             for (int i = 0; i < 8; ++i) {
-                Note n(TimePos(bar / 8), TimePos(i * bar / 2), Note::DefaultMiddleKey - 12);
+                Note n(TimePos(bar / 8), TimePos(i * bar / 2), DefaultMiddleKey - 12);
                 mc->addNote(n, false);
             }
         }
@@ -513,7 +513,7 @@ bool AssistantPanel::tryCreateSampleEdm(const QString& text)
         auto* mc = ensureMidiClip(lead, 0, len);
         if (mc) {
             for (int i = 0; i < 4; ++i) {
-                Note n(TimePos(bar / 4), TimePos(i * bar), Note::DefaultMiddleKey + 7);
+                Note n(TimePos(bar / 4), TimePos(i * bar), DefaultMiddleKey + 7);
                 mc->addNote(n, false);
             }
         }
